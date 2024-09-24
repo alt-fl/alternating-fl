@@ -270,6 +270,15 @@ def run_FedFA():
             client_modelsfa[i] = copy.deepcopy(global_modelfa)
             client_modelsfa[i].load_state_dict(torch.load(path_fedfa))
 
+    seed_path = os.path.join(
+        "results/Test/label skew/cifar10/fedfa/", "seed{}/".format(args.seed)
+    )
+    if not os.path.exists(seed_path):
+        print(f"Creating directory {seed_path}")
+        os.makedirs(seed_path)
+    else:
+        print(f"Directory {seed_path} already exists, good...")
+
     if save_models:
         if similarity:
             torch.save(
