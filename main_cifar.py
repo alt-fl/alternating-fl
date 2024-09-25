@@ -291,7 +291,7 @@ def run_FedFA():
                 args.seed, args.E, C
             ),
         )
-        path_fedfa = "results/Test/label skew/cifar10/fedfa/seed{}/global_model_fedfa_{}E_{}class".format(
+        path_fedfa = "results/Test/label skew/cifar10/fedfa/seed{}/global_model_fedfa_{}E_{}class.pt".format(
             args.seed, args.E, C
         )
         torch.save(global_modelfa.state_dict(), path_fedfa)
