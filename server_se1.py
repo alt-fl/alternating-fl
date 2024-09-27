@@ -21,6 +21,11 @@ from utils.AnchorLoss import *
 from utils.ContrastiveLoss import *
 from utils.CKA import linear_CKA, kernel_CKA
 
+import time
+import tracemalloc
+
+from pympler import asizeof
+
 
 def seed_torch(seed, test=True):
     if test:
@@ -91,6 +96,13 @@ class Server:
             datasets_name = ["MNIST", "SVHN", "USPS", "SynthDigits", "MNIST-M"]
         else:
             acc_list = []
+
+        results_path = f"results/cifar10/plain-fedfa/client_{int(self.args.C * self.args.K)}_{self.args.K}/"
+        client_times = []
+        gpu_utilizations = []
+        memory_usages = []
+        message_sizes = []
+
         for t in range(self.args.r):
             print("round", t + 1, ":")
             # sampling
@@ -115,6 +127,8 @@ class Server:
             dispatch(index, self.anchorloss, self.cls)
 
             # joint updating to obtain personalzied model based on updating global model
+            start_time = time.time()
+            tracemalloc.start()
             self.cls, self.nns, self.loss_dict = client_fedfa_cl(
                 self.args,
                 index,
@@ -125,6 +139,20 @@ class Server:
                 self.dataset,
                 self.dict_users,
                 self.loss_dict,
+            )
+            end_time = time.time()
+
+            # monitor different statistics
+            current_mem_usage, peak_mem_usage = tracemalloc.get_traced_memory()
+            memory_usages.append((peak_mem_usage, current_mem_usage))
+            tracemalloc.stop()
+
+            client_times.append(end_time - start_time)
+            gpu_utilizations.append(
+                (
+                    torch.cuda.utilization(),
+                    (torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated()),
+                )
             )
 
             # compute feature similarity
@@ -171,6 +199,8 @@ class Server:
                 aggregation(index, self.nn, self.nns, self.dict_users, fedbn=True)
             else:
                 aggregation(index, self.nn, self.nns, self.dict_users)
+                msg_size = asizeof.asizeof(self.nns)
+                message_sizes.append(msg_size)
             aggregation(index, self.anchorloss, self.cls, self.dict_users)
 
             if test_global_model_accuracy:
@@ -190,16 +220,46 @@ class Server:
                     acc_list.append(acc)
                     print(acc)
 
+            if t % 2 == 0:
+                print(f"Checkpoint of data made at round {t}.")
+                torch.save(
+                    {
+                        "client_times": client_times,
+                        "gpu_utilizations": gpu_utilizations,
+                        "memory_usages": memory_usages,
+                        "message_sizes": message_sizes,
+                    },
+                    results_path + "cifar10_plain_resources.ckpt",
+                )
+                torch.save(
+                    {
+                        "model": self.nn.state_dict(),
+                        "acc_list": acc_list,
+                        "loss_dict": self.loss_dict,
+                    },
+                    results_path + "cifar10_plain_model.ckpt",
+                )
+
         if fedbn:
             mean_CKA_dict = acc_list_dict
         else:
             mean_CKA_dict = acc_list
 
-        for k in range(self.args.K):
-            path = f"results/cifar10/plain-fedfa/client_{int(self.args.C * self.args.K)}_{self.args.K}/"
-            path += f"client{k}_model.pt"
-            if self.nns[k] != []:
-                torch.save(self.nns[k].state_dict(), path)
+        # for k in range(self.args.K):
+        #     path = f"results/cifar10/plain-fedfa/client_{int(self.args.C * self.args.K)}_{self.args.K}/"
+        #     path += f"client{k}_model.pt"
+        #     if self.nns[k] != []:
+        #         torch.save(self.nns[k].state_dict(), path)
+
+        torch.save(
+            {
+                "client_times": client_times,
+                "gpu_utilizations": gpu_utilizations,
+                "memory_usages": memory_usages,
+                "message_sizes": message_sizes,
+            },
+            results_path + "cifar10_plain_resources.ckpt",
+        )
         self.nns = [[] for i in range(self.args.K)]
         torch.cuda.empty_cache()
         return (

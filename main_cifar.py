@@ -295,9 +295,13 @@ def run_FedFA():
         # path_fedfa = "results/Test/label skew/cifar10/fedfa/seed{}/global_model_fedfa_{}E_{}class.pt".format(
         #     args.seed, args.E, C
         # )
-        result_checkpoint_path = results_path + "cifar10_plain.ckpt"
+        result_checkpoint_path = results_path + "cifar10_plain_model.ckpt"
         torch.save(
-            {"model": global_modelfa.state_dict(), "acc_list": acc_listfa},
+            {
+                "model": global_modelfa.state_dict(),
+                "acc_list": acc_listfa,
+                "loss_dict": loss_dictfa,
+            },
             result_checkpoint_path,
         )
 
