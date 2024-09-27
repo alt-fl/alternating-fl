@@ -304,6 +304,7 @@ def run_FedFA():
             },
             result_checkpoint_path,
         )
+        print("Finished. Saving the model and ML metrics...")
 
 
 if __name__ == "__main__":

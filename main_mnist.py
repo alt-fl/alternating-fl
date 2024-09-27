@@ -267,6 +267,7 @@ def run_FedFA():
         #     args.seed, args.E, C
         # )
         # torch.save(global_modelfa.state_dict(), path_fedfa)
+
         result_checkpoint_path = results_path + "mnist_plain_model.ckpt"
         torch.save(
             {
@@ -276,6 +277,7 @@ def run_FedFA():
             },
             result_checkpoint_path,
         )
+        print("Finished. Saving the model and ML metrics...")
 
 
 if __name__ == "__main__":
