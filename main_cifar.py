@@ -49,14 +49,13 @@ def seed_torch(seed=args.seed):
 
 def run_FedFA():
     seed_torch()
-    seed_path = os.path.join(
-        "results/Test/label skew/cifar10/fedfa/", "seed{}/".format(args.seed)
-    )
-    if not os.path.exists(seed_path):
-        print(f"Creating directory {seed_path}")
-        os.makedirs(seed_path)
+
+    results_path = f"results/cifar10/plain-fedfa/client_{int(args.C * args.K)}_{args.K}"
+    if not os.path.exists(results_path):
+        print(f"Creating directory {results_path}")
+        os.makedirs(results_path)
     else:
-        print(f"Directory {seed_path} already exists, good...")
+        print(f"Directory {results_path} already exists, proceeding...")
 
     similarity = False
     save_models = True
@@ -278,23 +277,27 @@ def run_FedFA():
             client_modelsfa[i].load_state_dict(torch.load(path_fedfa))
 
     if save_models:
-        if similarity:
-            torch.save(
-                similarity_dictfa,
-                "results/Test/label skew/cifar10/iid-fedavg/seed{}/similarity_dictfa_{}E_{}class.pt".format(
-                    args.seed, args.E, C
-                ),
-            )
+        # if similarity:
+        #     torch.save(
+        #         similarity_dictfa,
+        #         "results/Test/label skew/cifar10/iid-fedavg/seed{}/similarity_dictfa_{}E_{}class.pt".format(
+        #             args.seed, args.E, C
+        #         ),
+        #     )
+        # torch.save(
+        #     acc_listfa,
+        #     "results/Test/label skew/cifar10/fedfa/seed{}/acc_listfa_{}E_{}class.pt".format(
+        #         args.seed, args.E, C
+        #     ),
+        # )
+        # path_fedfa = "results/Test/label skew/cifar10/fedfa/seed{}/global_model_fedfa_{}E_{}class.pt".format(
+        #     args.seed, args.E, C
+        # )
+        result_checkpoint_path = results_path + "cifar10_plain.ckpt"
         torch.save(
-            acc_listfa,
-            "results/Test/label skew/cifar10/fedfa/seed{}/acc_listfa_{}E_{}class.pt".format(
-                args.seed, args.E, C
-            ),
+            {"model": global_modelfa.state_dict(), "acc_list": acc_listfa},
+            result_checkpoint_path,
         )
-        path_fedfa = "results/Test/label skew/cifar10/fedfa/seed{}/global_model_fedfa_{}E_{}class.pt".format(
-            args.seed, args.E, C
-        )
-        torch.save(global_modelfa.state_dict(), path_fedfa)
 
 
 if __name__ == "__main__":
