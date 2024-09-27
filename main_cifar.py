@@ -233,9 +233,13 @@ def run_FedFA():
     # df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
     # df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
 
+    total_params = sum(p.numel() for p in specf_model.parameters())
+    print("parameters: ", total_params)
+
     serverz = server.Server(
         args, specf_model, trainset, dict_users_train
     )  # dict_users指的是user的local dataset索引
+    print("global_model: ", serverz.nn.state_dict)
 
     server_feature = copy.deepcopy(serverz)
 

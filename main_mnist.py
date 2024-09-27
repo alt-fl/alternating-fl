@@ -205,10 +205,13 @@ def run_FedFA():
     # dict_users_test_iid = testset_sampling(args, testset, number_perclass, iid_part_df)
 
     specf_model = model.Client_Model(args, name="mnist").to(args.device)
+    total_params = sum(p.numel() for p in specf_model.parameters())
+    print("parameters: ", total_params)
 
     serverz = server.Server(
         args, specf_model, trainset, dict_users_train
     )  # dict_users指的是user的local dataset索引
+    print("global_model: ", serverz.nn.state_dict)
     server_feature = copy.deepcopy(serverz)
     if Train_model:
         (
