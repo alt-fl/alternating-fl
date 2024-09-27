@@ -97,7 +97,7 @@ class Server:
         else:
             acc_list = []
 
-        results_path = f"results/cifar10/plain-fedfa/client_{int(self.args.C * self.args.K)}_{self.args.K}/"
+        results_path = f"results/{self.args.dataset}/plain-fedfa/client_{int(self.args.C * self.args.K)}_{self.args.K}/"
         client_times = []
         gpu_utilizations = []
         memory_usages = []
@@ -221,7 +221,9 @@ class Server:
                     print(acc)
 
             if t % 2 == 0:
-                print(f"Checkpoint of data made at round {t}.")
+                print(
+                    f"Checkpoint of data for dataset {self.args.dataset} made at round {t}."
+                )
                 torch.save(
                     {
                         "client_times": client_times,
@@ -229,7 +231,7 @@ class Server:
                         "memory_usages": memory_usages,
                         "message_sizes": message_sizes,
                     },
-                    results_path + "cifar10_plain_resources.ckpt",
+                    results_path + f"{self.args.dataset}_plain_resources.ckpt",
                 )
                 torch.save(
                     {
@@ -237,7 +239,7 @@ class Server:
                         "acc_list": acc_list,
                         "loss_dict": self.loss_dict,
                     },
-                    results_path + "cifar10_plain_model.ckpt",
+                    results_path + f"{self.args.dataset}_plain_model.ckpt",
                 )
 
         if fedbn:
@@ -258,8 +260,9 @@ class Server:
                 "memory_usages": memory_usages,
                 "message_sizes": message_sizes,
             },
-            results_path + "cifar10_plain_resources.ckpt",
+            results_path + f"{self.args.dataset}_plain_resources.ckpt",
         )
+        print("Saving resource allocation statistics...")
         self.nns = [[] for i in range(self.args.K)]
         torch.cuda.empty_cache()
         return (

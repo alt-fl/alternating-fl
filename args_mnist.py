@@ -67,7 +67,7 @@ def args_parser():
         default=10,
         help="number of per class in one client dataset",
     )
-    parser.add_argument("--dataset", type=str, default="fmnist", help="dataset name")
+    parser.add_argument("--dataset", type=str, default="mnist", help="dataset name")
     parser.add_argument(
         "--split", type=str, default="2CNN_2", help="dataset spliting setting"
     )
