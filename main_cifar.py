@@ -137,101 +137,101 @@ def run_FedFA():
         args, testset, number_perclass, noniid_labeldir_part_df
     )
 
-    training_number = {j: {} for j in range(args.K)}
-
-    for i in range(args.K):
-        training_number[i] = {j: 0 for j in range(num_classes)}
-        label_class = set(
-            np.array(trainset.targets)[list(dict_users_train[i])].tolist()
-        )
-        # print(list(label_class))
-        for k in label_class:
-            training_number[i][k] = list(
-                np.array(trainset.targets)[list(dict_users_train[i])]
-            ).count(k)
-
-    df_training_number = []
-    df_training_number = pd.DataFrame(df_training_number)
-    for i in range(args.K):
-        temp = pd.Series(training_number[i])
-        df_training_number[i] = temp
-
-    df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
-    df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
-
-    test_number = {j: {} for j in range(args.K)}
-
-    for i in range(args.K):
-        test_number[i] = {j: 0 for j in range(num_classes)}
-        label_class = set(np.array(testset.targets)[list(dict_users_test[i])].tolist())
-        # print(list(label_class))
-        for k in label_class:
-            test_number[i][k] = list(
-                np.array(testset.targets)[list(dict_users_test[i])]
-            ).count(k)
-
-    df_test_number = []
-    df_test_number = pd.DataFrame(df_test_number)
-    for i in range(args.K):
-        temp = pd.Series(test_number[i])
-        df_test_number[i] = temp
-
-    df_test_number["Col_sum"] = df_test_number.apply(lambda x: x.sum(), axis=1)
-    df_test_number.loc["Row_sum"] = df_test_number.apply(lambda x: x.sum())
-
-    # perform partition
-    iid_part = FMNISTPartitioner(
-        trainset.targets, num_clients=num_clients, partition="iid", seed=1
-    )
-    # generate partition report
-    csv_file = "data/CIFAR10/cifar10_iid_clients_10.csv"
-    partition_report(
-        trainset.targets,
-        iid_part.client_dict,
-        class_num=num_classes,
-        verbose=False,
-        file=csv_file,
-    )
-
-    iid_part_df = pd.read_csv(csv_file, header=1)
-    iid_part_df = iid_part_df.set_index("client")
-    for col in col_names:
-        iid_part_df[col] = (iid_part_df[col] * iid_part_df["Amount"]).astype(int)
-
-    # select first 10 clients for bar plot
-    iid_part_df[col_names].iloc[:10].plot.barh(stacked=True)
-    # plt.tight_layout()
-    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    plt.xlabel("sample num")
-    plt.savefig(
-        f"data/CIFAR10/cifar10_iid_clients_10.png", dpi=400, bbox_inches="tight"
-    )
-    dict_users_train_iid = trainset_sampling_label(
-        args, trainset, trainset_sample_rate, rare_class_nums, iid_part
-    )
-    dict_users_test_iid = testset_sampling(args, testset, number_perclass, iid_part_df)
-
-    training_number = {j: {} for j in range(args.K)}
-
-    for i in range(args.K):
-        training_number[i] = {j: 0 for j in range(num_classes)}
-        label_class = set(
-            np.array(trainset.targets)[list(dict_users_train_iid[i])].tolist()
-        )
-        # print(list(label_class))
-        for k in label_class:
-            training_number[i][k] = list(
-                np.array(trainset.targets)[list(dict_users_train_iid[i])]
-            ).count(k)
-
-    df_training_number = []
-    df_training_number = pd.DataFrame(df_training_number)
-    for i in range(args.K):
-        temp = pd.Series(training_number[i])
-        df_training_number[i] = temp
-
-    df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
-    df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
+    # training_number = {j: {} for j in range(args.K)}
+    #
+    # for i in range(args.K):
+    #     training_number[i] = {j: 0 for j in range(num_classes)}
+    #     label_class = set(
+    #         np.array(trainset.targets)[list(dict_users_train[i])].tolist()
+    #     )
+    #     # print(list(label_class))
+    #     for k in label_class:
+    #         training_number[i][k] = list(
+    #             np.array(trainset.targets)[list(dict_users_train[i])]
+    #         ).count(k)
+    #
+    # df_training_number = []
+    # df_training_number = pd.DataFrame(df_training_number)
+    # for i in range(args.K):
+    #     temp = pd.Series(training_number[i])
+    #     df_training_number[i] = temp
+    #
+    # df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
+    # df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
+    #
+    # test_number = {j: {} for j in range(args.K)}
+    #
+    # for i in range(args.K):
+    #     test_number[i] = {j: 0 for j in range(num_classes)}
+    #     label_class = set(np.array(testset.targets)[list(dict_users_test[i])].tolist())
+    #     # print(list(label_class))
+    #     for k in label_class:
+    #         test_number[i][k] = list(
+    #             np.array(testset.targets)[list(dict_users_test[i])]
+    #         ).count(k)
+    #
+    # df_test_number = []
+    # df_test_number = pd.DataFrame(df_test_number)
+    # for i in range(args.K):
+    #     temp = pd.Series(test_number[i])
+    #     df_test_number[i] = temp
+    #
+    # df_test_number["Col_sum"] = df_test_number.apply(lambda x: x.sum(), axis=1)
+    # df_test_number.loc["Row_sum"] = df_test_number.apply(lambda x: x.sum())
+    #
+    # # perform partition
+    # iid_part = FMNISTPartitioner(
+    #     trainset.targets, num_clients=num_clients, partition="iid", seed=1
+    # )
+    # # generate partition report
+    # csv_file = "data/CIFAR10/cifar10_iid_clients_10.csv"
+    # partition_report(
+    #     trainset.targets,
+    #     iid_part.client_dict,
+    #     class_num=num_classes,
+    #     verbose=False,
+    #     file=csv_file,
+    # )
+    #
+    # iid_part_df = pd.read_csv(csv_file, header=1)
+    # iid_part_df = iid_part_df.set_index("client")
+    # for col in col_names:
+    #     iid_part_df[col] = (iid_part_df[col] * iid_part_df["Amount"]).astype(int)
+    #
+    # # select first 10 clients for bar plot
+    # iid_part_df[col_names].iloc[:10].plot.barh(stacked=True)
+    # # plt.tight_layout()
+    # plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    # plt.xlabel("sample num")
+    # plt.savefig(
+    #     f"data/CIFAR10/cifar10_iid_clients_10.png", dpi=400, bbox_inches="tight"
+    # )
+    # dict_users_train_iid = trainset_sampling_label(
+    #     args, trainset, trainset_sample_rate, rare_class_nums, iid_part
+    # )
+    # dict_users_test_iid = testset_sampling(args, testset, number_perclass, iid_part_df)
+    #
+    # training_number = {j: {} for j in range(args.K)}
+    #
+    # for i in range(args.K):
+    #     training_number[i] = {j: 0 for j in range(num_classes)}
+    #     label_class = set(
+    #         np.array(trainset.targets)[list(dict_users_train_iid[i])].tolist()
+    #     )
+    #     # print(list(label_class))
+    #     for k in label_class:
+    #         training_number[i][k] = list(
+    #             np.array(trainset.targets)[list(dict_users_train_iid[i])]
+    #         ).count(k)
+    #
+    # df_training_number = []
+    # df_training_number = pd.DataFrame(df_training_number)
+    # for i in range(args.K):
+    #     temp = pd.Series(training_number[i])
+    #     df_training_number[i] = temp
+    #
+    # df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
+    # df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
 
     serverz = server.Server(
         args, specf_model, trainset, dict_users_train
@@ -249,7 +249,7 @@ def run_FedFA():
             acc_listfa,
         ) = server_feature.fedfa_anchorloss(
             testset,
-            dict_users_test_iid[0],
+            dict_users_test[0],
             similarity=similarity,
             test_global_model_accuracy=True,
         )
