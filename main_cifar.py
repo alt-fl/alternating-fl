@@ -50,7 +50,9 @@ def seed_torch(seed=args.seed):
 def run_FedFA():
     seed_torch()
 
-    results_path = f"results/cifar10/plain-fedfa/client_{int(args.C * args.K)}_{args.K}"
+    results_path = (
+        f"results/cifar10/plain-fedfa/client_{int(args.C * args.K)}_{args.K}/"
+    )
     if not os.path.exists(results_path):
         print(f"Creating directory {results_path}")
         os.makedirs(results_path)
