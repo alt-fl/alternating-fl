@@ -148,12 +148,13 @@ class Server:
             tracemalloc.stop()
 
             client_times.append(end_time - start_time)
-            gpu_utilizations.append(
-                (
-                    torch.cuda.utilization(),
-                    (torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated()),
+            if torch.cuda.is_available():
+                gpu_utilizations.append(
+                    (
+                        torch.cuda.utilization(),
+                        (torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated()),
+                    )
                 )
-            )
 
             # compute feature similarity
             if similarity:

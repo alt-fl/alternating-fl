@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import torch, os, random
+from torch.cuda import is_available
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -41,8 +42,11 @@ class AnchorLoss(nn.Module):
         :param _target: label/targets
         :return: anchor loss 
         """
-        # broadcast feature anchors for all inputs
-        centre = self.anchor.cuda().index_select(dim=0, index=_target.long())
+        if is_available():
+            # broadcast feature anchors for all inputs
+            centre = self.anchor.cuda().index_select(dim=0, index=_target.long())
+        else:
+            centre = self.anchor.index_select(dim=0, index=_target.long())
         # compute the number of samples in each class
         counter = torch.histc(_target, bins=self.cls_num, min=0, max=self.cls_num-1)
         count = counter[_target.long()]
@@ -80,7 +84,11 @@ class ContrastiveLoss(nn.Module):
         
     def forward(self, feature, _target):
 
-        centre = self.anchor.cuda()
+        if is_available():
+            centre = self.anchor.cuda()
+        else:
+            centre = self.anchor
+
         counter = torch.histc(_target, bins=self.cls_num, min=0, max=self.cls_num-1)
         count = counter[_target.long()]
         #print(feature.size())
