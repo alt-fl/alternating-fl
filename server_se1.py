@@ -267,7 +267,9 @@ class Server:
                             continue
                         dec_params = self.enc_params[name].decrypt()
                         param_flat = param.data.view(-1)
-                        param_flat[self.mask[name]] = torch.tensor(dec_params)
+                        param_flat[self.mask[name]] = torch.tensor(dec_params).to(
+                            self.args.device
+                        )
 
                     # test accuracy on decrypted model --> should see better accuracy
                     real_acc, _ = test_on_globaldataset(self.args, dec_model, testset)

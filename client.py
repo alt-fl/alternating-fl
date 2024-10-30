@@ -41,7 +41,7 @@ def client_fedfa_cl(
                     continue
                 dec_param = enc_params[name].decrypt()
                 param_flat = param.data.view(-1)
-                param_flat[mask[name]] = torch.tensor(dec_param)
+                param_flat[mask[name]] = torch.tensor(dec_param).to(args.device)
             end = time.time()
             print(f"\ttotal decryption time: {end - start}s")
 
@@ -65,7 +65,7 @@ def client_fedfa_cl(
                 continue
             param_flat = param.data.view(-1)
             enc_param_flat = ts.ckks_vector(
-                he_context, param_flat[mask[name]].detach().clone()
+                he_context, param_flat[mask[name]].cpu().detach().clone()
             )
             if name not in enc_params_dict:
                 enc_params_dict[name] = {}

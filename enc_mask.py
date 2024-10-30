@@ -8,7 +8,9 @@ import utils.optimizer as op
 
 def get_enc_mask(args, model, dst, dst_idx, ratio=0.1):
     sens_maps = get_sensitivity_maps(args, model, dst, dst_idx)
-    agg_map = [torch.zeros(p.shape) for _, p in model.named_parameters()]
+    agg_map = [
+        torch.zeros(p.shape).to(args.device) for _, p in model.named_parameters()
+    ]
 
     for k in range(args.K):
         agg_weight = float(len(dst_idx[k])) / len(dst)
@@ -51,6 +53,7 @@ def get_sensitivity_maps(args, model, dst, dst_idx):
         gradients = [None for _ in model.named_parameters()]
         loss_fun = torch.nn.CrossEntropyLoss().to(args.device)
         for img, label in loader:
+            img, label = img.to(args.device), label.to(args.device)
             _, y_preds = model(img)
             loss = loss_fun(y_preds, label)
             loss.backward()
