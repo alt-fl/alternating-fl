@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
 
-import random, os
+import random, os, sys, re
 import numpy as np
 from math import sqrt
 from matplotlib import pyplot as plt
@@ -34,6 +34,38 @@ from utils.sampling import testset_sampling, trainset_sampling, trainset_samplin
 from utils.tSNE import FeatureVisualize
 
 args = args_parser()
+
+
+class Filter(object):
+    def __init__(self, stream, re_pattern):
+        self.stream = stream
+        self.pattern = (
+            re.compile(re_pattern) if isinstance(re_pattern, str) else re_pattern
+        )
+        self.triggered = False
+
+    def __getattr__(self, attr_name):
+        return getattr(self.stream, attr_name)
+
+    def write(self, data):
+        if data == "\n" and self.triggered:
+            self.triggered = False
+        else:
+            if self.pattern.search(data) is None:
+                self.stream.write(data)
+                self.stream.flush()
+            else:
+                # caught bad pattern
+                self.triggered = True
+
+    def flush(self):
+        self.stream.flush()
+
+
+# example
+sys.stdout = Filter(
+    sys.stdout, r"WARNING: The input does not fit in a single ciphertext"
+)  # filter out any line which contains "Read -1" in it
 
 
 def seed_torch(seed=args.seed):
@@ -64,7 +96,8 @@ def run_FedFA():
     Train_model = True
 
     C = "2CNN_2"
-    specf_model = model.Client_Model(args, name="cifar10").to(args.device)
+    # specf_model = model.Client_Model(args, name="cifar10").to(args.device)
+    specf_model = model.LeNet5().to(args.device)
     trans_cifar10 = transforms.Compose(
         [
             transforms.ToTensor(),

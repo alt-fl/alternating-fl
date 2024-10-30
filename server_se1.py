@@ -7,6 +7,7 @@ import copy
 import random, os
 import matplotlib.pyplot as plt
 import numpy as np
+import tenseal as ts
 
 
 import model
@@ -20,11 +21,37 @@ from utils.sampling import *
 from utils.AnchorLoss import *
 from utils.ContrastiveLoss import *
 from utils.CKA import linear_CKA, kernel_CKA
+from enc_mask import get_enc_mask
 
 import time
 import tracemalloc
 
 from pympler import asizeof
+
+
+def get_context():
+    # controls precision of the fractional part
+    bits_scale = 26
+    # Create TenSEAL context
+    context = ts.context(
+        ts.SCHEME_TYPE.CKKS,
+        poly_modulus_degree=2**13,
+        coeff_mod_bit_sizes=[
+            31,
+            bits_scale,
+            bits_scale,
+            bits_scale,
+            bits_scale,
+            bits_scale,
+            bits_scale,
+            31,
+        ],
+    )
+    # set the scale
+    context.global_scale = pow(2, bits_scale)
+    # galois keys are required to do ciphertext rotations
+    context.generate_galois_keys()
+    return context
 
 
 def seed_torch(seed, test=True):
@@ -66,6 +93,13 @@ class Server:
             temp2.name = clients[i]
             self.cls.append(temp2)
 
+        self.context = get_context()
+        self.enc_params = {}
+        s = time.time()
+        self.mask = get_enc_mask(self.args, self.nn, self.dataset, self.dict_users)
+        e = time.time()
+        print(f"Calculating encryption mask took {e - s}s")
+
         self.contrastiveloss = ContrastiveLoss(
             self.args.num_classes, self.args.dims_feature
         ).to(args.device)
@@ -104,7 +138,7 @@ class Server:
         message_sizes = []
 
         for t in range(self.args.r):
-            print("round", t + 1, ":")
+            print("Round", t + 1, ":")
             # sampling
             np.random.seed(self.args.seed + t)
             m = np.max([int(self.args.C * self.args.K), 1])  # C is client sample rate
@@ -129,7 +163,7 @@ class Server:
             # joint updating to obtain personalzied model based on updating global model
             start_time = time.time()
             tracemalloc.start()
-            self.cls, self.nns, self.loss_dict = client_fedfa_cl(
+            self.cls, self.nns, self.loss_dict, enc_params_dict = client_fedfa_cl(
                 self.args,
                 index,
                 self.cls,
@@ -139,6 +173,9 @@ class Server:
                 self.dataset,
                 self.dict_users,
                 self.loss_dict,
+                self.context,
+                self.mask,
+                self.enc_params,
             )
             end_time = time.time()
 
@@ -152,7 +189,10 @@ class Server:
                 gpu_utilizations.append(
                     (
                         torch.cuda.utilization(),
-                        (torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated()),
+                        (
+                            torch.cuda.max_memory_allocated(),
+                            torch.cuda.memory_allocated(),
+                        ),
                     )
                 )
 
@@ -203,6 +243,7 @@ class Server:
                 msg_size = asizeof.asizeof(self.nns)
                 message_sizes.append(msg_size)
             aggregation(index, self.anchorloss, self.cls, self.dict_users)
+            self.enc_params = fhe_aggregate(index, enc_params_dict, self.dict_users)
 
             if test_global_model_accuracy:
                 if fedbn:
@@ -217,13 +258,27 @@ class Server:
                         print(acc)
 
                 else:
-                    acc, _ = test_on_globaldataset(self.args, self.nn, testset)
-                    acc_list.append(acc)
-                    print(acc)
+                    # test accuracy on encrypted model --> we expect really bad accuracy
+                    enc_acc, _ = test_on_globaldataset(self.args, self.nn, testset)
 
-            if t % 2 == 0:
+                    dec_model = copy.deepcopy(self.nn)
+                    for name, param in dec_model.named_parameters():
+                        if name not in self.mask:
+                            continue
+                        dec_params = self.enc_params[name].decrypt()
+                        param_flat = param.data.view(-1)
+                        param_flat[self.mask[name]] = torch.tensor(dec_params)
+
+                    # test accuracy on decrypted model --> should see better accuracy
+                    real_acc, _ = test_on_globaldataset(self.args, dec_model, testset)
+                    acc_list.append((enc_acc, real_acc))
+
+                    print(f"acc (encrypted): {enc_acc.item():.2f}%")
+                    print(f"acc (decrypted): {real_acc.item():.2f}%")
+
+            if (t + 1) % 10 == 0:
                 print(
-                    f"Checkpoint of data for dataset {self.args.dataset} made at round {t}."
+                    f"Checkpoint of data for dataset {self.args.dataset} made at round {t + 1}."
                 )
                 torch.save(
                     {

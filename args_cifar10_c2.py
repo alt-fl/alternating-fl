@@ -55,7 +55,7 @@ def args_parser():
 
     # model and data split arguments
     parser.add_argument(
-        "--dims_feature", type=int, default=192, help="feature dimension"
+        "--dims_feature", type=int, default=84, help="feature dimension"
     )  # 192
     parser.add_argument(
         "--trainset_sample_rate", type=int, default=1, help="trainset sample rate"
