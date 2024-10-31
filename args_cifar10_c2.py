@@ -17,7 +17,13 @@ def args_parser():
     parser.add_argument("--TB", type=int, default=1000, help="test batch size")
     parser.add_argument("--C", type=float, default=0.1, help="client samspling rate")
 
-    # optimizer argumentss
+    # experiment settings
+    parser.add_argument(
+        "--model", type=str, default="cnn", help="CNN or LeNet5 mode architecture"
+    )
+    parser.add_argument("--ratio", type=float, default=0, help="selective HE ratio")
+
+    # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")
     parser.add_argument(
         "--weight_decay",
@@ -26,19 +32,7 @@ def args_parser():
         help="learning rate decay per global round",
     )
     parser.add_argument(
-        "--mu", type=float, default=0.1, help="proximal term constant for fedprox"
-    )
-    parser.add_argument(
-        "--mu1", type=float, default=1, help="proximal term constant for moon"
-    )
-    parser.add_argument(
-        "--alph", type=float, default=0.1, help="proximal term constant for feddyn"
-    )
-    parser.add_argument(
         "--lambda_anchor", type=float, default=0.1, help="anchor proximal term constant"
-    )
-    parser.add_argument(
-        "--tau", type=float, default=0.5, help="moon temperature parameter"
     )
     parser.add_argument(
         "--optimizer", type=str, default="sgd", help="type of optimizer"
@@ -84,7 +78,7 @@ def args_parser():
     )
     parser.add_argument("--verbose", action="store_true", help="verbose print")
     parser.add_argument(
-        "--seed", type=int, default=2021, help="random seed (default: 1)"
+        "--seed", type=int, default=1234, help="random seed (default: 1)"
     )
 
     args = parser.parse_args()

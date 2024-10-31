@@ -83,8 +83,9 @@ def run_FedFA():
     seed_torch()
 
     results_path = (
-        f"results/cifar10/plain-fedfa/client_{int(args.C * args.K)}_{args.K}/"
+        f"results/{args.model.lower()}/ratio_{str(args.ratio).replace('.', '_')}/"
     )
+    args.path = results_path
     if not os.path.exists(results_path):
         print(f"Creating directory {results_path}")
         os.makedirs(results_path)
@@ -96,8 +97,7 @@ def run_FedFA():
     Train_model = True
 
     C = "2CNN_2"
-    # specf_model = model.Client_Model(args, name="cifar10").to(args.device)
-    specf_model = model.LeNet5().to(args.device)
+    specf_model = model.ClientModel(args, name="cifar10").to(args.device)
     trans_cifar10 = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -266,13 +266,14 @@ def run_FedFA():
     # df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
     # df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
 
+    print("model:", args.model)
     total_params = sum(p.numel() for p in specf_model.parameters())
-    print("parameters: ", total_params)
+    print("parameters:", total_params)
 
     serverz = server.Server(
         args, specf_model, trainset, dict_users_train
     )  # dict_users指的是user的local dataset索引
-    print("global_model: ", serverz.nn.state_dict)
+    print("global_model:", serverz.nn.state_dict)
 
     server_feature = copy.deepcopy(serverz)
 
@@ -315,37 +316,21 @@ def run_FedFA():
             client_modelsfa[i] = copy.deepcopy(global_modelfa)
             client_modelsfa[i].load_state_dict(torch.load(path_fedfa))
 
-    if save_models:
-        # if similarity:
-        #     torch.save(
-        #         similarity_dictfa,
-        #         "results/Test/label skew/cifar10/iid-fedavg/seed{}/similarity_dictfa_{}E_{}class.pt".format(
-        #             args.seed, args.E, C
-        #         ),
-        #     )
-        # torch.save(
-        #     acc_listfa,
-        #     "results/Test/label skew/cifar10/fedfa/seed{}/acc_listfa_{}E_{}class.pt".format(
-        #         args.seed, args.E, C
-        #     ),
-        # )
-        # path_fedfa = "results/Test/label skew/cifar10/fedfa/seed{}/global_model_fedfa_{}E_{}class.pt".format(
-        #     args.seed, args.E, C
-        # )
-        result_checkpoint_path = results_path + "cifar10_plain_model.ckpt"
-        torch.save(
-            {
-                "model": global_modelfa.state_dict(),
-                "acc_list": acc_listfa,
-                "loss_dict": loss_dictfa,
-            },
-            result_checkpoint_path,
-        )
-        print("Finished. Saving the model and ML metrics...")
+    # if save_models:
+    #     result_checkpoint_path = results_path + "cifar10_plain_model.ckpt"
+    #     torch.save(
+    #         {
+    #             "model": global_modelfa.state_dict(),
+    #             "acc_list": acc_listfa,
+    #             "loss_dict": loss_dictfa,
+    #         },
+    #         result_checkpoint_path,
+    #     )
+    #     print("Finished. Saving the model and ML metrics...")
 
 
 if __name__ == "__main__":
-    print("setting: ", int(args.C * args.K), "/", args.K)
+    print(f"setting: {int(args.C * args.K)}/{args.K} active clients")
 
     start_time = time.time()
     run_FedFA()

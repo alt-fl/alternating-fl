@@ -61,8 +61,8 @@ def fedfa_cl_optimizer(
         optimizer = torch.optim.SGD(
             client_model.parameters(), lr=lr, momentum=args.momentum, weight_decay=0.001
         )  #
-        # optimizer_c = torch.optim.SGD(client_model.classifier.parameters(), lr=0.1)
-        optimizer_c = torch.optim.Adam(client_model.classifier.parameters())
+    # optimizer_c = torch.optim.SGD(client_model.classifier.parameters(), lr=0.1)
+    optimizer_c = torch.optim.Adam(client_model.classifier.parameters())
 
     loss_function = nn.CrossEntropyLoss().to(args.device)
     anchorloss = anchorloss_func.to(args.device)

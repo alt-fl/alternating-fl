@@ -31,7 +31,7 @@ def get_most_sensitivive(sens_map, model, ratio=0.1):
         indices = top_indices[
             (top_indices >= last_idx) & (top_indices < last_idx + total_num)
         ]
-        print(f"{name}: {len(indices)}/{total_num}")
+        print(f"\t{name}: {len(indices)}/{total_num}")
 
         if len(indices) == 0:
             last_idx += total_num
