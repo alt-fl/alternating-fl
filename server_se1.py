@@ -31,20 +31,20 @@ from pympler import asizeof
 
 def get_context():
     # controls precision of the fractional part
-    bits_scale = 21
+    bits_scale = 26
     # Create TenSEAL context
     context = ts.context(
         ts.SCHEME_TYPE.CKKS,
         poly_modulus_degree=8192,
         coeff_mod_bit_sizes=[
-            40,
+            31,
             bits_scale,
             bits_scale,
             bits_scale,
             bits_scale,
             bits_scale,
             bits_scale,
-            40,
+            31,
         ],
     )
     # set the scale
@@ -252,7 +252,11 @@ class Server:
 
             if self.args.ratio > 0:
                 start_time = time.time()
-                self.enc_params = fhe_aggregate(index, enc_params_dict, self.dict_users)
+                self.enc_params = fhe_aggregate(
+                    index,
+                    enc_params_dict,
+                    self.dict_users,
+                )
                 end_time = time.time()
                 fhe_agg_time = end_time - start_time
                 fhe_agg_times.append(fhe_agg_time)
@@ -273,10 +277,11 @@ class Server:
                         dec_params = ts.ckks_vector_from(
                             self.context, self.enc_params[name]
                         ).decrypt()
-                        param_flat = param.data.view(-1)
-                        param_flat[self.mask[name]] = torch.tensor(dec_params).to(
-                            self.args.device
-                        )
+                        with torch.no_grad():
+                            param_flat = param.view(-1)
+                            param_flat[self.mask[name]] = torch.tensor(dec_params).to(
+                                self.args.device
+                            )
 
                     # test accuracy on decrypted model --> should see better accuracy
                     real_acc, _ = test_on_globaldataset(self.args, dec_model, testset)

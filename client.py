@@ -38,17 +38,18 @@ def client_fedfa_cl(
         model = client_models[k]
 
         if enc_params:
-            start = time.time()
-            for name, param in model.named_parameters():
-                if name not in mask:
-                    continue
-                dec_param = ts.ckks_vector_from(context, enc_params[name]).decrypt()
-                param_flat = param.data.view(-1)
-                param_flat[mask[name]] = torch.tensor(dec_param).to(args.device)
-            end = time.time()
-            dec_time = end - start
-            local_training_times[k]["decryption"] = dec_time
-            print(f"\ttotal decryption time: {dec_time:.2f}s")
+            with torch.no_grad():
+                start = time.time()
+                for name, param in model.named_parameters():
+                    if name not in mask:
+                        continue
+                    dec_param = ts.ckks_vector_from(context, enc_params[name]).decrypt()
+                    param_flat = param.view(-1)
+                    param_flat[mask[name]] = torch.tensor(dec_param).to(args.device)
+                end = time.time()
+                dec_time = end - start
+                local_training_times[k]["decryption"] = dec_time
+                print(f"\ttotal decryption time: {dec_time:.2f}s")
 
         start = time.time()
         anchorloss_funcs[k], client_models[k], loss = op.fedfa_cl_optimizer(
@@ -67,23 +68,24 @@ def client_fedfa_cl(
         print(f"\tlocal training time: {training_time:.2f}s")
 
         if args.ratio > 0:
-            start = time.time()
-            for name, param in model.named_parameters():
-                if name not in mask:
-                    continue
-                param_flat = param.data.view(-1)
-                enc_param_flat = ts.ckks_vector(
-                    he_context, param_flat[mask[name]].cpu().detach().clone()
-                )
-                if name not in enc_params_dict:
-                    enc_params_dict[name] = {}
-                enc_params_dict[name][k] = enc_param_flat
-                # hide encrypted parameters by setting random values
-                param_flat[mask[name]] = torch.randn(mask[name].shape)
-            end = time.time()
-            enc_time = end - start
-            local_training_times[k]["encryption"] = enc_time
-            print(f"\ttotal encryption time: {enc_time:.2f}s\n")
+            with torch.no_grad():
+                start = time.time()
+                for name, param in model.named_parameters():
+                    if name not in mask:
+                        continue
+                    param_flat = param.view(-1)
+                    enc_param_flat = ts.ckks_vector(
+                        he_context, param_flat[mask[name]].cpu().detach().clone()
+                    )
+                    if name not in enc_params_dict:
+                        enc_params_dict[name] = {}
+                    enc_params_dict[name][k] = enc_param_flat
+                    # hide encrypted parameters by setting random values
+                    param_flat[mask[name]] = torch.randn(mask[name].shape)
+                end = time.time()
+                enc_time = end - start
+                local_training_times[k]["encryption"] = enc_time
+                print(f"\ttotal encryption time: {enc_time:.2f}s\n")
 
     index_nonselect = list(set(i for i in range(args.K)) - set(client_index))
     for j in index_nonselect:
