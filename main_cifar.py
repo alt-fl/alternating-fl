@@ -117,8 +117,8 @@ def run_FedFA():
 
     col_names = [f"class{i}" for i in range(num_classes)]
     print(col_names)
-    hist_color = "#4169E1"
-    plt.rcParams["figure.facecolor"] = "white"
+    # hist_color = "#4169E1"
+    # plt.rcParams["figure.facecolor"] = "white"
 
     # perform partition
     noniid_labeldir_part = CIFAR10Partitioner(
@@ -147,15 +147,15 @@ def run_FedFA():
         ).astype(int)
 
     # select first 10 clients for bar plot
-    noniid_labeldir_part_df[col_names].iloc[:10].plot.barh(stacked=True)
-    # plt.tight_layout()
-    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    plt.xlabel("sample num")
-    plt.savefig(
-        f"data/CIFAR10//cifar10_noniid_labeldir_clients_10.png",
-        dpi=400,
-        bbox_inches="tight",
-    )
+    # noniid_labeldir_part_df[col_names].iloc[:10].plot.barh(stacked=True)
+    # # plt.tight_layout()
+    # plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    # plt.xlabel("sample num")
+    # plt.savefig(
+    #     f"data/CIFAR10//cifar10_noniid_labeldir_clients_10.png",
+    #     dpi=400,
+    #     bbox_inches="tight",
+    # )
 
     # split dataset into training and testing
 

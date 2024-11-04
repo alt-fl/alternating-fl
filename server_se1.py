@@ -277,7 +277,7 @@ class Server:
             for i in sorted(last_models.keys())[:-3]:
                 del last_models[i]
 
-            if (t + 1) % 2 == 0:
+            if (t + 1) % 10 == 0:
                 torch.save(
                     {
                         "round_types": round_types,

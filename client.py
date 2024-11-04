@@ -82,7 +82,9 @@ def client_fedfa_cl(
                         enc_params_dict[name] = {}
                     enc_params_dict[name][k] = enc_param_flat
                     # hide encrypted parameters by setting random values
-                    param_flat[mask[name]] = torch.randn(mask[name].shape)
+                    param_flat[mask[name]] = torch.randn(mask[name].shape).to(
+                        args.device
+                    )
                 end = time.time()
                 enc_time = end - start
                 local_training_times[k]["encryption"] = enc_time
