@@ -12,6 +12,7 @@ import tenseal as ts
 
 import model
 from client import *
+from synthetic_data import InterleavingRounds
 from utils.aggregator import *
 from utils.dispatchor import *
 from utils.optimizer import *
@@ -68,7 +69,7 @@ def seed_torch(seed, test=True):
 
 class Server:
 
-    def __init__(self, args, model, dataset, dict_users):
+    def __init__(self, args, model, dataset, dict_users, syn_dst, syn_dict_users):
         seed_torch(args.seed)
         self.args = args
         self.nn = copy.deepcopy(model)
@@ -84,6 +85,9 @@ class Server:
         self.dataset = dataset
         self.dict_users = dict_users
 
+        self.syn_dst = syn_dst
+        self.syn_dict_users = syn_dict_users
+
         self.anchorloss = AnchorLoss(self.args.num_classes, self.args.dims_feature).to(
             args.device
         )
@@ -97,24 +101,17 @@ class Server:
         self.context = None
         self.mask = None
 
+        print(f"\ninterleaving ratio: {self.args.AR}:{self.args.SR}")
+
         if self.args.ratio > 0:
+            print(f"selective homomorphic encryption ratio: {self.args.ratio}")
             self.context = get_context()
             s = time.time()
             self.mask = get_enc_mask(
                 self.args, self.nn, self.dataset, self.dict_users, ratio=self.args.ratio
             )
             e = time.time()
-            print(f"Selective homomorphic encryption ratio: {self.args.ratio:.4f}")
-            print(f"Calculating encryption mask took {e - s:.2f}s")
-
-        self.contrastiveloss = ContrastiveLoss(
-            self.args.num_classes, self.args.dims_feature
-        ).to(args.device)
-        for i in range(self.args.K):
-            temp2 = copy.deepcopy(self.contrastiveloss)
-            clients = [str(i) for i in range(self.args.K)]
-            temp2.name = clients[i]
-            self.contrals.append(temp2)
+            print(f"calculating encryption mask took {e - s:.2f}s")
 
     def fedfa_anchorloss(
         self,
@@ -124,9 +121,12 @@ class Server:
         fedbn=False,
         test_global_model_accuracy=False,
     ):
+
+        checkpoint_name = f"checkpoint_seed{self.args.seed}_lr{str(self.args.lr).replace('.', '_')}.pt"
+        checkpoint_name = self.args.path + checkpoint_name
         similarity_dict = {"feature": [], "classifier": []}
 
-        results_path = self.args.path
+        round_types = []
         acc_list = []
         round_times = []
         gpu_utilizations = []
@@ -139,8 +139,10 @@ class Server:
 
         last_models = {}
 
-        for t in range(self.args.r):
-            print(f"\nRound {t + 1}:")
+        for t, is_auth in InterleavingRounds(
+            rounds=self.args.r, ratio=(self.args.AR, self.args.SR)
+        ):
+            print(f"\n{'Authentic' if is_auth else 'Synthetic'} round {t + 1}:")
             # sampling
             np.random.seed(self.args.seed + t)
             m = np.max([int(self.args.C * self.args.K), 1])  # C is client sample rate
@@ -148,6 +150,15 @@ class Server:
                 range(0, self.args.K), m, replace=False
             )  # sample m clients
             self.index_dict[t] = index
+
+            # use synthetic data if sythentic round
+            if is_auth:
+                dst = self.dataset
+                dict_users = self.dict_users
+            else:
+                dst = self.syn_dst
+                dict_users = self.syn_dict_users
+            round_types.append(is_auth)
 
             # dispatch
             dispatch(index, self.nn, self.nns)
@@ -164,13 +175,12 @@ class Server:
                     self.nns,
                     self.nn,
                     t,
-                    self.dataset,
-                    self.dict_users,
+                    dst,
+                    dict_users,
                     self.loss_dict,
                     self.context,
                     self.mask,
                     self.enc_params,
-                    self.context,
                 )
             )
             end_time = time.time()
@@ -193,45 +203,6 @@ class Server:
                         ),
                     )
                 )
-
-            # # compute feature similarity
-            # if similarity:
-            #     # compute feature similarity
-            #     mean_feature_similarity = compute_mean_feature_similarity(
-            #         self.args,
-            #         index,
-            #         self.nns,
-            #         self.dataset,
-            #         self.dict_users,
-            #         testset,
-            #         dict_users_test,
-            #     )
-            #
-            #     # compute classifier similarity
-            #     client_classifiers = {i: [] for i in index}
-            #     cos_sim_matrix = torch.zeros(len(index), len(index))
-            #     for k in index:
-            #         classifier_weight_update = (
-            #             self.nns[k].classifier.weight.data
-            #             - self.nn.classifier.weight.data
-            #         )
-            #         classifier_bias_update = self.nns[k].classifier.bias.data.view(
-            #             10, 1
-            #         ) - self.nn.classifier.bias.data.view(10, 1)
-            #         client_classifiers[k] = torch.cat(
-            #             [classifier_weight_update, classifier_bias_update], 1
-            #         )
-            #     for p, k in enumerate(index):
-            #         for q, j in enumerate(index):
-            #             cos_sim = torch.cosine_similarity(
-            #                 client_classifiers[k], client_classifiers[j]
-            #             )
-            #             # print(cos_sim)
-            #             cos_sim_matrix[p][q] = torch.mean(cos_sim)
-            #     mean_classifiers_similarity = torch.mean(cos_sim_matrix)
-            #
-            #     similarity_dict["feature"].append(mean_feature_similarity)
-            #     similarity_dict["classifier"].append(mean_classifiers_similarity)
 
             # aggregate the model
             start_time = time.time()
@@ -299,6 +270,7 @@ class Server:
                 "model": copy.deepcopy(self.nn.state_dict()),
                 "anchorloss": copy.deepcopy(self.anchorloss.state_dict()),
                 "enc_params": copy.deepcopy(self.enc_params),
+                "mask": copy.deepcopy(self.mask),
             }
 
             # we keep the last 3 models
@@ -308,6 +280,7 @@ class Server:
             if (t + 1) % 2 == 0:
                 torch.save(
                     {
+                        "round_types": round_types,
                         "round_times": round_times,
                         "gpu_utilizations": gpu_utilizations,
                         "memory_usages": memory_usages,
@@ -325,7 +298,7 @@ class Server:
                             else None
                         ),
                     },
-                    results_path + f"checkpoint{self.args.seed}.pt",
+                    checkpoint_name,
                 )
                 print(f"Checkpoint of {self.args.model} made at round {t + 1}")
 
@@ -333,6 +306,7 @@ class Server:
 
         torch.save(
             {
+                "round_types": round_types,
                 "round_times": round_times,
                 "gpu_utilizations": gpu_utilizations,
                 "memory_usages": memory_usages,
@@ -350,7 +324,7 @@ class Server:
                     else None
                 ),
             },
-            results_path + f"checkpoint{self.args.seed}.pt",
+            checkpoint_name,
         )
 
         self.nns = [[] for i in range(self.args.K)]

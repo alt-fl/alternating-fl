@@ -19,9 +19,11 @@ def args_parser():
 
     # experiment settings
     parser.add_argument(
-        "--model", type=str, default="cnn", help="CNN or LeNet5 mode architecture"
+        "--model", type=str, default="LeNet5", help="CNN or LeNet5 mode architecture"
     )
     parser.add_argument("--ratio", type=float, default=0, help="selective HE ratio")
+    parser.add_argument("--AR", type=int, default=1, help="number of authentic rounds")
+    parser.add_argument("--SR", type=int, default=0, help="number of synthetic rounds")
 
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")

@@ -32,6 +32,7 @@ from utils.local_test import test_on_localdataset
 from utils.training_loss import train_loss_show, train_localacc_show
 from utils.sampling import testset_sampling, trainset_sampling, trainset_sampling_label
 from utils.tSNE import FeatureVisualize
+from synthetic_data import SyntheticCIFAR10
 
 args = args_parser()
 
@@ -82,9 +83,7 @@ def seed_torch(seed=args.seed):
 def run_FedFA():
     seed_torch()
 
-    results_path = (
-        f"results/{args.model.lower()}/ratio_{str(args.ratio).replace('.', '_')}/"
-    )
+    results_path = f"results/{args.model.lower()}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
     args.path = results_path
     if not os.path.exists(results_path):
         print(f"Creating directory {results_path}")
@@ -270,8 +269,30 @@ def run_FedFA():
     total_params = sum(p.numel() for p in specf_model.parameters())
     print("parameters:", total_params)
 
+    syn_dst = SyntheticCIFAR10()
+    syn_noniid_labeldir_part = CIFAR10Partitioner(
+        trainset.targets,
+        num_clients=num_clients,
+        balance=None,
+        partition="shards",
+        num_shards=200,
+        seed=1,
+    )
+    syn_dict_users = trainset_sampling_label(
+        args,
+        syn_dst,
+        trainset_sample_rate,
+        rare_class_nums,
+        syn_noniid_labeldir_part,
+    )
     serverz = server.Server(
-        args, specf_model, trainset, dict_users_train
+        # args, specf_model, trainset, dict_users_train
+        args,
+        specf_model,
+        trainset,
+        dict_users_train,
+        syn_dst,
+        syn_dict_users,
     )  # dict_users指的是user的local dataset索引
     print("global_model:", serverz.nn.state_dict)
 

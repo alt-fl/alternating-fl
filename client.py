@@ -26,7 +26,6 @@ def client_fedfa_cl(
     he_context,
     mask,
     enc_params,
-    context,
 ):  # update nn
     enc_params_dict = {}
     local_training_times = {}
@@ -43,7 +42,9 @@ def client_fedfa_cl(
                 for name, param in model.named_parameters():
                     if name not in mask:
                         continue
-                    dec_param = ts.ckks_vector_from(context, enc_params[name]).decrypt()
+                    dec_param = ts.ckks_vector_from(
+                        he_context, enc_params[name]
+                    ).decrypt()
                     param_flat = param.view(-1)
                     param_flat[mask[name]] = torch.tensor(dec_param).to(args.device)
                 end = time.time()
