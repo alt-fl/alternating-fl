@@ -296,7 +296,7 @@ def run_FedFA():
     )  # dict_users指的是user的local dataset索引
     print("global_model:", serverz.nn.state_dict)
 
-    server_feature = copy.deepcopy(serverz)
+    server_feature = serverz
 
     if Train_model:
         (

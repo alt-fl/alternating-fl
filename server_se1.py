@@ -95,6 +95,7 @@ class Server:
 
         self.enc_params = {}
         self.context = None
+        self.sk = None
         self.mask = None
 
         print(f"\ninterleaving ratio: {self.args.AR}:{self.args.SR}")
@@ -102,6 +103,7 @@ class Server:
         if self.args.ratio > 0:
             print(f"selective homomorphic encryption ratio: {self.args.ratio}")
             self.context = get_context()
+            self.sk = self.context.secret_key()
             s = time.time()
             self.mask = get_enc_mask(
                 self.args, self.nn, self.dataset, self.dict_users, ratio=self.args.ratio
@@ -128,6 +130,7 @@ class Server:
         gpu_utilizations = []
         memory_usages = []
         message_sizes = []
+        anchorloss_sizes = []
         training_times = []
         ciphertext_sizes = []
         agg_times = []
@@ -160,6 +163,7 @@ class Server:
             dispatch(index, self.nn, self.nns)
             dispatch(index, self.anchorloss, self.cls)
 
+            he_context = self.context.serialize() if self.context else None
             # joint updating to obtain personalzied model based on updating global model
             start_time = time.time()
             tracemalloc.start()
@@ -174,9 +178,11 @@ class Server:
                     dst,
                     dict_users,
                     self.loss_dict,
-                    self.context,
+                    he_context,
+                    self.sk,
                     self.mask,
                     self.enc_params,
+                    is_auth,
                 )
             )
             end_time = time.time()
@@ -188,6 +194,8 @@ class Server:
 
             round_times.append(end_time - start_time)
             training_times.append(training_stats)
+
+            print(f"peak memory usage: {peak_mem_usage / 1e6:.2f}MB")
 
             if torch.cuda.is_available():
                 gpu_utilizations.append(
@@ -217,7 +225,10 @@ class Server:
             agg_times.append((fedavg_agg_time, anchor_agg_time))
             print(f"FedFA aggregation time: {fedavg_agg_time + anchor_agg_time:.2f}s")
 
-            if self.args.ratio > 0:
+            anchorloss_size = asizeof.asizeof(self.anchorloss)
+            anchorloss_sizes.append(anchorloss_size)
+
+            if self.args.ratio > 0 and enc_params_dict:
                 start_time = time.time()
                 self.enc_params = fhe_aggregate(
                     index,
@@ -231,12 +242,16 @@ class Server:
 
                 ciphertext_size = asizeof.asizeof(list(self.enc_params.values()))
                 ciphertext_sizes.append(ciphertext_size)
+            else:
+                fhe_agg_times.append(0)
+                ciphertext_sizes.append(0)
+                self.enc_params = {}
 
             if test_global_model_accuracy:
                 # test accuracy on encrypted model --> we expect really bad accuracy
                 enc_acc, _ = test_on_globaldataset(self.args, self.nn, testset)
 
-                if self.args.ratio > 0:
+                if self.args.ratio > 0 and self.enc_params:
                     dec_model = copy.deepcopy(self.nn)
                     for name, param in dec_model.named_parameters():
                         if name not in self.mask:
@@ -252,7 +267,7 @@ class Server:
 
                     # test accuracy on decrypted model --> should see better accuracy
                     real_acc, _ = test_on_globaldataset(self.args, dec_model, testset)
-                    acc_list.append((enc_acc, real_acc))
+                    acc_list.append(real_acc)
 
                     print(f"acc (encrypted): {enc_acc.item():.2f}%")
                     print(f"acc (decrypted): {real_acc.item():.2f}%")
@@ -281,6 +296,7 @@ class Server:
                         "gpu_utilizations": gpu_utilizations,
                         "memory_usages": memory_usages,
                         "message_sizes": message_sizes,
+                        "anchorloss_sizes": anchorloss_sizes,
                         "training_times": training_times,
                         "ciphertext_sizes": ciphertext_sizes,
                         "agg_times": agg_times,
@@ -307,6 +323,7 @@ class Server:
                 "gpu_utilizations": gpu_utilizations,
                 "memory_usages": memory_usages,
                 "message_sizes": message_sizes,
+                "anchorloss_sizes": anchorloss_sizes,
                 "training_times": training_times,
                 "ciphertext_sizes": ciphertext_sizes,
                 "agg_times": agg_times,
