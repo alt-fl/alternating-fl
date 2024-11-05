@@ -32,20 +32,16 @@ from pympler import asizeof
 
 def get_context():
     # controls precision of the fractional part
-    bits_scale = 26
+    bits_scale = 40
     # Create TenSEAL context
     context = ts.context(
         ts.SCHEME_TYPE.CKKS,
         poly_modulus_degree=8192,
         coeff_mod_bit_sizes=[
-            31,
+            60,
             bits_scale,
             bits_scale,
-            bits_scale,
-            bits_scale,
-            bits_scale,
-            bits_scale,
-            31,
+            60,
         ],
     )
     # set the scale
