@@ -36,13 +36,13 @@ def client_fedfa_cl(
     # we need to copy over all these to ensure that tracemalloc actually
     # traces memory usages for them, note we are not copying the secret key
     # because it is small (negligible) and difficult to deepcopy
-    he_context = ts.context_from(he_context)
+    he_context = ts.context_from(deepcopy(he_context)) if he_context else None
     enc_params = deepcopy(enc_params)
     mask = deepcopy(mask)
 
     loss_dict = deepcopy(loss_dict)
     global_model = deepcopy(global_model)
-    dataset_train = deepcopy(dataset_train)
+    # dataset_train = deepcopy(dataset_train)
 
     for k in client_index:  # k is the index of the client
         print("Client {} client_fedfa_anchorloss...".format(k))
