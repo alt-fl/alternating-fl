@@ -120,8 +120,9 @@ class Server:
         test_global_model_accuracy=False,
     ):
 
-        checkpoint_name = f"checkpoint_seed{self.args.seed}_lr{str(self.args.lr).replace('.', '_')}.pt"
+        checkpoint_name = f"checkpoint_seed{self.args.seed}_lr{str(self.args.lr).replace('.', '_')}_E{self.args.E}.pt"
         checkpoint_name = self.args.path + checkpoint_name
+        print(f"the statistics will be logged to {checkpoint_name!r}")
         similarity_dict = {"feature": [], "classifier": []}
 
         round_types = []
