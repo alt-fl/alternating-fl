@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import torchvision
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset, ConcatDataset
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
 
@@ -32,7 +32,7 @@ from utils.local_test import test_on_localdataset
 from utils.training_loss import train_loss_show, train_localacc_show
 from utils.sampling import testset_sampling, trainset_sampling, trainset_sampling_label
 from utils.tSNE import FeatureVisualize
-from synthetic_data import SyntheticCIFAR10
+from synthetic_data import IndexedDataset, SyntheticCIFAR10
 
 args = args_parser()
 
@@ -111,6 +111,22 @@ def run_FedFA():
         root=root, train=False, download=True, transform=trans_cifar10
     )
 
+    auth_idxs = []
+    synth_idxs = []
+    for cls in range(len(trainset.classes)):
+        cls_idx = np.where(np.array(trainset.targets) == cls)[0]
+        cls_len = len(cls_idx)
+        np.random.shuffle(cls_idx)
+
+        auth_idx = cls_idx[: cls_len // 2]
+        synth_idx = cls_idx[cls_len // 2 :]
+
+        auth_idxs.extend(auth_idx)
+        synth_idxs.extend(synth_idx)
+
+    auth_dst = IndexedDataset(trainset, auth_idxs)
+    synth_dst = IndexedDataset(trainset, synth_idxs)
+
     num_classes = args.num_classes
     num_clients = args.K
     number_perclass = args.num_perclass
@@ -122,7 +138,7 @@ def run_FedFA():
 
     # perform partition
     noniid_labeldir_part = CIFAR10Partitioner(
-        trainset.targets,
+        auth_dst.targets,
         num_clients=num_clients,
         balance=None,
         partition="shards",
@@ -132,7 +148,7 @@ def run_FedFA():
     # generate partition report
     csv_file = "data/CIFAR10/cifar10_noniid_labeldir_clients_10.csv"
     partition_report(
-        trainset.targets,
+        auth_dst.targets,
         noniid_labeldir_part.client_dict,
         class_num=num_classes,
         verbose=False,
@@ -163,7 +179,7 @@ def run_FedFA():
 
     rare_class_nums = 0
     dict_users_train = trainset_sampling_label(
-        args, trainset, trainset_sample_rate, rare_class_nums, noniid_labeldir_part
+        args, auth_dst, trainset_sample_rate, rare_class_nums, noniid_labeldir_part
     )
     dict_users_test = testset_sampling(
         args, testset, number_perclass, noniid_labeldir_part_df
@@ -269,9 +285,9 @@ def run_FedFA():
     total_params = sum(p.numel() for p in specf_model.parameters())
     print("parameters:", total_params)
 
-    syn_dst = SyntheticCIFAR10()
+    # syn_dst = SyntheticCIFAR10()
     syn_noniid_labeldir_part = CIFAR10Partitioner(
-        trainset.targets,
+        synth_dst.targets,
         num_clients=num_clients,
         balance=None,
         partition="shards",
@@ -280,7 +296,7 @@ def run_FedFA():
     )
     syn_dict_users = trainset_sampling_label(
         args,
-        syn_dst,
+        synth_dst,
         trainset_sample_rate,
         rare_class_nums,
         syn_noniid_labeldir_part,
@@ -289,9 +305,9 @@ def run_FedFA():
         # args, specf_model, trainset, dict_users_train
         args,
         specf_model,
-        trainset,
+        auth_dst,
         dict_users_train,
-        syn_dst,
+        synth_dst,
         syn_dict_users,
     )  # dict_users指的是user的local dataset索引
     print("global_model:", serverz.nn.state_dict)

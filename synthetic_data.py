@@ -34,6 +34,22 @@ class InterleavingRounds(Iterator):
         return round, is_auth
 
 
+class IndexedDataset(Dataset):
+    def __init__(self, dataset, indices, num_classes=10):
+        super().__init__()
+        self.dataset = dataset
+        self.indices = np.array(indices)
+        self.targets = np.array(dataset.targets)[indices]
+        self.data = dataset.data[indices]
+        self.num_classes = num_classes
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.dataset.__getitem__(self.indices[idx])
+
+
 class SyntheticCIFAR10(Dataset):
     def __init__(
         self,
