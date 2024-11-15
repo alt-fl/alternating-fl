@@ -15,6 +15,7 @@ import copy
 
 import time
 import tracemalloc
+import psutil
 
 from fedlab.utils.dataset import FMNISTPartitioner, CIFAR10Partitioner
 from fedlab.utils.functional import partition_report, save_dict
@@ -374,6 +375,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
     tracemalloc.start()
+    psutil.cpu_percent()
     run_FedFA()
     end_time = time.time()
     print("Execution Time: ", end_time - start_time)

@@ -10,6 +10,7 @@ import tenseal as ts
 
 from pprint import pp
 import tracemalloc
+import psutil
 
 import utils.optimizer as op
 
@@ -47,6 +48,8 @@ def client_fedfa_cl(
 
         local_training_times[k] = {}
         model = client_models[k]
+        # kickstart CPU utilization tracing
+        psutil.cpu_percent()
 
         if enc_params:
             with torch.no_grad():
@@ -105,6 +108,9 @@ def client_fedfa_cl(
                 print(f"\ttotal encryption time: {enc_time:.2f}s\n")
         else:
             local_training_times[k]["encryption"] = 0
+
+        client_cpu_util = psutil.cpu_percent()
+        local_training_times[k]["cpu_util"] = client_cpu_util
 
     index_nonselect = list(set(i for i in range(args.K)) - set(client_index))
     for j in index_nonselect:
