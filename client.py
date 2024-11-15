@@ -57,9 +57,7 @@ def client_fedfa_cl(
                 for name, param in model.named_parameters():
                     if name not in mask:
                         continue
-                    dec_param = ts.ckks_vector_from(
-                        he_context, enc_params[name]
-                    ).decrypt(secret_key)
+                    dec_param = enc_params[name].decrypt(secret_key)
                     param_flat = param.view(-1)
                     param_flat[mask[name]] = torch.tensor(dec_param).to(args.device)
                 end = time.time()

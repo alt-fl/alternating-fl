@@ -252,9 +252,7 @@ class Server:
                     for name, param in dec_model.named_parameters():
                         if name not in self.mask:
                             continue
-                        dec_params = ts.ckks_vector_from(
-                            self.context, self.enc_params[name]
-                        ).decrypt()
+                        dec_params = self.enc_params[name].decrypt(self.sk)
                         with torch.no_grad():
                             param_flat = param.view(-1)
                             param_flat[self.mask[name]] = torch.tensor(dec_params).to(

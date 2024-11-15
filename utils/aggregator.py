@@ -28,7 +28,8 @@ def fhe_aggregate(client_index, enc_params_dict, dict_users):
                 enc_params[name] = enc_param.mul(weight)
                 continue
             enc_params[name] = enc_params[name].add(enc_param.mul(weight))
-        enc_params[name] = enc_params[name].serialize()
+        # there is no need to serialize if we don't save ciphertexts
+        # enc_params[name] = enc_params[name].serialize()
     return enc_params
 
 
