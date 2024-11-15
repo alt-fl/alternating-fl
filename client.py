@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 import tenseal as ts
 
 from pprint import pp
-
+import tracemalloc
 
 import utils.optimizer as op
 
@@ -30,19 +30,14 @@ def client_fedfa_cl(
     enc_params,
     is_auth,
 ):  # update nn
+    # reset peak memory to current memory to start tracking memory usage
+    tracemalloc.reset_peak()
+
     enc_params_dict = {}
     local_training_times = {}
 
-    # we need to copy over all these to ensure that tracemalloc actually
-    # traces memory usages for them, note we are not copying the secret key
-    # because it is small (negligible) and difficult to deepcopy
+    # we assume the context is serialized
     he_context = ts.context_from(deepcopy(he_context)) if he_context else None
-    enc_params = deepcopy(enc_params)
-    mask = deepcopy(mask)
-
-    loss_dict = deepcopy(loss_dict)
-    global_model = deepcopy(global_model)
-    # dataset_train = deepcopy(dataset_train)
 
     for k in client_index:  # k is the index of the client
         print("Client {} client_fedfa_anchorloss...".format(k))

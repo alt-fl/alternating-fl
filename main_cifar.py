@@ -14,7 +14,7 @@ import pandas as pd
 import copy
 
 import time
-
+import tracemalloc
 
 from fedlab.utils.dataset import FMNISTPartitioner, CIFAR10Partitioner
 from fedlab.utils.functional import partition_report, save_dict
@@ -146,7 +146,10 @@ def run_FedFA():
         seed=1,
     )
     # generate partition report
-    csv_file = "data/CIFAR10/cifar10_noniid_labeldir_clients_10.csv"
+    csv_file = (
+        "data/CIFAR10/cifar10_noniid_labeldir_clients_"
+        + f"enc{int(args.ratio * 100)}_inter{args.AR}_{args.SR}.csv"
+    )
     partition_report(
         auth_dst.targets,
         noniid_labeldir_part.client_dict,
@@ -370,6 +373,7 @@ if __name__ == "__main__":
     print(f"setting: {int(args.C * args.K)}/{args.K} active clients")
 
     start_time = time.time()
+    tracemalloc.start()
     run_FedFA()
     end_time = time.time()
     print("Execution Time: ", end_time - start_time)

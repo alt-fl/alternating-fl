@@ -167,7 +167,7 @@ class Server:
             he_context = self.context.serialize() if self.context else None
             # joint updating to obtain personalzied model based on updating global model
             start_time = time.time()
-            tracemalloc.start()
+
             self.cls, self.nns, self.loss_dict, training_stats, enc_params_dict = (
                 client_fedfa_cl(
                     self.args,
@@ -189,14 +189,9 @@ class Server:
             end_time = time.time()
 
             # monitor different statistics
-            current_mem_usage, peak_mem_usage = tracemalloc.get_traced_memory()
-            memory_usages.append((peak_mem_usage, current_mem_usage))
-            tracemalloc.stop()
-
+            _, peak_mem_usage = tracemalloc.get_traced_memory()
             round_times.append(end_time - start_time)
             training_times.append(training_stats)
-
-            print(f"peak memory usage: {peak_mem_usage / 1e6:.2f}MB")
 
             if torch.cuda.is_available():
                 gpu_utilizations.append(
@@ -278,18 +273,11 @@ class Server:
                     acc_list.append(enc_acc)
                     print(f"acc: {enc_acc.item():.2f}%")
 
-            last_models[t + 1] = {
-                "model": copy.deepcopy(self.nn.state_dict()),
-                "anchorloss": copy.deepcopy(self.anchorloss.state_dict()),
-                "enc_params": copy.deepcopy(self.enc_params),
-                "mask": copy.deepcopy(self.mask),
-            }
-
-            # we keep the last 3 models
-            for i in sorted(last_models.keys())[:-3]:
-                del last_models[i]
-
-            if (t + 1) % 10 == 0:
+            if (t + 1) % 20 == 0:
+                last_models[t] = {
+                    "model": copy.deepcopy(self.nn.state_dict()),
+                    "anchorloss": copy.deepcopy(self.anchorloss.state_dict()),
+                }
                 torch.save(
                     {
                         "round_types": round_types,
@@ -305,15 +293,31 @@ class Server:
                         "models": last_models,
                         "acc_list": acc_list,
                         "loss_dict": self.loss_dict,
-                        "context": (
-                            copy.deepcopy(self.context.serialize())
-                            if self.args.ratio > 0
-                            else None
-                        ),
+                        "mask": copy.deepcopy(self.mask),
                     },
                     checkpoint_name,
                 )
                 print(f"Checkpoint of {self.args.model} made at round {t + 1}")
+
+            # don't track the recorded statistics in the memory
+            stats_size = sum(
+                asizeof.asizesof(
+                    round_types,
+                    acc_list,
+                    round_times,
+                    gpu_utilizations,
+                    memory_usages,
+                    message_sizes,
+                    anchorloss_sizes,
+                    training_times,
+                    ciphertext_sizes,
+                    agg_times,
+                    fhe_agg_times,
+                    last_models,
+                )
+            )
+            memory_usages.append(peak_mem_usage - stats_size)
+            print(f"peak memory usage: {(peak_mem_usage - stats_size) / 1e6:.2f}MB")
 
         mean_CKA_dict = acc_list
 
@@ -332,11 +336,7 @@ class Server:
                 "models": last_models,
                 "acc_list": acc_list,
                 "loss_dict": self.loss_dict,
-                "context": (
-                    copy.deepcopy(self.context.serialize())
-                    if self.args.ratio > 0
-                    else None
-                ),
+                "mask": copy.deepcopy(self.mask),
             },
             checkpoint_name,
         )
@@ -351,70 +351,3 @@ class Server:
             self.index_dict,
             mean_CKA_dict,
         )
-
-
-#
-# def compute_mean_feature_similarity(
-#     args, index, client_models, trainset, dict_users_train, testset, dict_users_test
-# ):
-#     pdist = nn.PairwiseDistance(p=2)
-#     dict_class_verify = {i: [] for i in range(args.num_classes)}
-#     for i in dict_users_test:
-#         for c in range(args.num_classes):
-#             if np.array(testset.targets)[i] == c:
-#                 dict_class_verify[c].append(i)
-#     # dict_clients_features = {k: {i: [] for i in range(args.num_classes)} for k in range(args.K)}
-#     dict_clients_features = {k: [] for k in index}
-#     for k in index:
-#         # labels = np.array(trainset.targets)[list(dict_users_train[k])]
-#         # labels_class = set(labels.tolist())
-#         # for c in labels_class:
-#         for c in range(args.num_classes):
-#             features_oneclass = verify_feature_consistency(
-#                 args, client_models[k], testset, dict_class_verify[c]
-#             )
-#             features_oneclass = features_oneclass.view(
-#                 1, features_oneclass.size()[0], features_oneclass.size()[1]
-#             )
-#             if c == 0:
-#                 dict_clients_features[k] = features_oneclass
-#             else:
-#                 dict_clients_features[k] = torch.cat(
-#                     [dict_clients_features[k], features_oneclass]
-#                 )
-#
-#     cos_sim_matrix = torch.zeros(len(index), len(index))
-#     for p, k in enumerate(index):
-#         for q, j in enumerate(index):
-#             for c in range(args.num_classes):
-#                 cos_sim0 = pdist(
-#                     dict_clients_features[k][c], dict_clients_features[j][c]
-#                 )
-#                 # cos_sim0 = torch.cosine_similarity(dict_clients_features[k][c],
-#                 #                                   dict_clients_features[j][c])
-#                 # cos_sim0 = get_cos_similarity_postive_pairs(dict_clients_features[k][c],
-#                 #                                    dict_clients_features[j][c])
-#                 if c == 0:
-#                     cos_sim = cos_sim0
-#                 else:
-#                     cos_sim = torch.cat([cos_sim, cos_sim0])
-#             cos_sim_matrix[p][q] = torch.mean(cos_sim)
-#     mean_feature_similarity = torch.mean(cos_sim_matrix)
-#
-#     return mean_feature_similarity
-#
-#
-# def get_cos_similarity_postive_pairs(target, behaviored):
-#     attention_distribution_mean = []
-#     for j in range(target.size(0)):
-#         attention_distribution = []
-#         for i in range(behaviored.size(0)):
-#             attention_score = torch.cosine_similarity(
-#                 target[j], behaviored[i].view(1, -1)
-#             )
-#             attention_distribution.append(attention_score)
-#         attention_distribution = torch.Tensor(attention_distribution)
-#         mean = torch.mean(attention_distribution)
-#         attention_distribution_mean.append(mean)
-#     attention_distribution_mean = torch.Tensor(attention_distribution_mean)
-#     return attention_distribution_mean
