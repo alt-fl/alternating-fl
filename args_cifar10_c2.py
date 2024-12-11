@@ -24,6 +24,11 @@ def args_parser():
     parser.add_argument("--ratio", type=float, default=0, help="selective HE ratio")
     parser.add_argument("--AR", type=int, default=1, help="number of authentic rounds")
     parser.add_argument("--SR", type=int, default=0, help="number of synthetic rounds")
+    parser.add_argument(
+        "--extend_dataset",
+        action=argparse.BooleanOptionalAction,
+        help="whether to use the extended dataset",
+    )
 
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")

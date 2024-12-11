@@ -128,6 +128,20 @@ def run_FedFA():
     auth_dst = IndexedDataset(trainset, auth_idxs)
     synth_dst = IndexedDataset(trainset, synth_idxs)
 
+    if args.extend_dataset:
+        # extending dataset with testset
+        targets = copy.deepcopy(list(auth_dst.targets))
+        targets.extend(testset.targets)
+        auth_dst = ConcatDataset([auth_dst, testset])
+        auth_dst.targets = targets
+
+        # we test instead on the synthetic dataset
+        testset = synth_dst
+
+        # we don't do interleaving with extend_dataset
+        args.AR = 1
+        args.SR = 0
+
     num_classes = args.num_classes
     num_clients = args.K
     number_perclass = args.num_perclass
@@ -305,6 +319,11 @@ def run_FedFA():
         rare_class_nums,
         syn_noniid_labeldir_part,
     )
+
+    if args.extend_dataset:
+        synth_dst = None
+        syn_dict_users = None
+
     serverz = server.Server(
         # args, specf_model, trainset, dict_users_train
         args,
