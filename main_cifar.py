@@ -34,6 +34,7 @@ from utils.training_loss import train_loss_show, train_localacc_show
 from utils.sampling import testset_sampling, trainset_sampling, trainset_sampling_label
 from utils.tSNE import FeatureVisualize
 from synthetic_data import IndexedDataset, SyntheticCIFAR10
+from cats_dogs import load_dst
 
 args = args_parser()
 
@@ -131,12 +132,11 @@ def run_FedFA():
     if args.extend_dataset:
         # extending dataset with testset
         targets = copy.deepcopy(list(auth_dst.targets))
-        targets.extend(testset.targets)
-        auth_dst = ConcatDataset([auth_dst, testset])
-        auth_dst.targets = targets
+        cats_dogs_dst, cats_dogs_targets = load_dst("train.zip")
+        targets.extend(cats_dogs_targets)
 
-        # we test instead on the synthetic dataset
-        testset = synth_dst
+        auth_dst = ConcatDataset([auth_dst, cats_dogs_dst])
+        auth_dst.targets = targets
 
         # we don't do interleaving with extend_dataset
         args.AR = 1
@@ -156,8 +156,9 @@ def run_FedFA():
         auth_dst.targets,
         num_clients=num_clients,
         balance=None,
-        partition="shards",
-        num_shards=200,
+        partition="dirichlet",
+        # num_shards=200,
+        dir_alpha=0.4,
         seed=1,
     )
     # generate partition report
@@ -323,6 +324,15 @@ def run_FedFA():
     if args.extend_dataset:
         synth_dst = None
         syn_dict_users = None
+
+    summed = 0
+    for k in dict_users_train:
+        counts = [0] * 10
+        for id in dict_users_train[k]:
+            counts[auth_dst[id][1]] += 1
+        print(f"Client {k}: {counts}")
+        summed += sum(counts)
+    print(f"Total samples: {summed}")
 
     serverz = server.Server(
         # args, specf_model, trainset, dict_users_train
