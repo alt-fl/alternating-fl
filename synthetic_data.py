@@ -2,6 +2,8 @@ from collections.abc import Iterator
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+from torchvision.datasets import ImageFolder
+from tqdm import tqdm
 
 
 class InterleavingRounds(Iterator):
@@ -38,16 +40,23 @@ class IndexedDataset(Dataset):
     def __init__(self, dataset, indices, num_classes=10):
         super().__init__()
         self.dataset = dataset
+        self.transform = self.dataset.transform
         self.indices = np.array(indices)
         self.targets = np.array(dataset.targets)[indices]
-        self.data = dataset.data[indices]
+        if isinstance(dataset, ImageFolder):
+            self.data = [dataset.__getitem__(idx) for idx in tqdm(indices)]
+        else:
+            self.data = list(zip(dataset.data[indices], self.targets))
         self.num_classes = num_classes
 
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        return self.dataset.__getitem__(self.indices[idx])
+        sample, target = self.data[idx]
+        if self.transform and not isinstance(self.dataset, ImageFolder):
+            sample = self.transform(sample)
+        return sample, target
 
 
 class SyntheticCIFAR10(Dataset):

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import torchvision
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset, ConcatDataset
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10, ImageFolder
 import torchvision.transforms as transforms
 
 import random, os, sys, re
@@ -34,7 +34,6 @@ from utils.training_loss import train_loss_show, train_localacc_show
 from utils.sampling import testset_sampling, trainset_sampling, trainset_sampling_label
 from utils.tSNE import FeatureVisualize
 from synthetic_data import IndexedDataset, SyntheticCIFAR10
-from cats_dogs import load_dst
 
 args = args_parser()
 
@@ -85,7 +84,7 @@ def seed_torch(seed=args.seed):
 def run_FedFA():
     seed_torch()
 
-    results_path = f"results/{args.model.lower()}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
+    results_path = f"results/{args.model.lower()}/{"cifar10" if not args.extend_dataset else "cinic10"}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
     args.path = results_path
     if not os.path.exists(results_path):
         print(f"Creating directory {results_path}")
@@ -99,19 +98,38 @@ def run_FedFA():
 
     C = "2CNN_2"
     specf_model = model.ClientModel(args, name="cifar10").to(args.device)
-    trans_cifar10 = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262]),
-        ]
-    )
-    root = "data/CIFAR10/"
-    trainset = torchvision.datasets.CIFAR10(
-        root=root, train=True, download=True, transform=trans_cifar10
-    )
-    testset = torchvision.datasets.CIFAR10(
-        root=root, train=False, download=True, transform=trans_cifar10
-    )
+
+    if not args.extend_dataset:
+        trans_cifar10 = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262]
+                ),
+            ]
+        )
+        root = "data/CIFAR10/"
+        trainset = CIFAR10(
+            root=root, train=True, download=True, transform=trans_cifar10
+        )
+        testset = CIFAR10(
+            root=root, train=False, download=True, transform=trans_cifar10
+        )
+    else:
+        # use CINIC-10 dataset, where validation is merged with trainset
+        cinic_dir = "./cinic10"
+        cinic_mean = [0.47889522, 0.47227842, 0.43047404]
+        cinic_std = [0.24205776, 0.23828046, 0.25874835]
+        trans_cinic10 = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=cinic_mean, std=cinic_std),
+            ]
+        )
+        trainset = ImageFolder(cinic_dir + "/train", transform=trans_cinic10)
+        testset = ImageFolder(cinic_dir + "/test", transform=trans_cinic10)
+        # force load testset into memery for faster processing
+        testset = IndexedDataset(testset, list(range(len(testset))))
 
     auth_idxs = []
     synth_idxs = []
@@ -126,21 +144,9 @@ def run_FedFA():
         auth_idxs.extend(auth_idx)
         synth_idxs.extend(synth_idx)
 
+    # note that IndexedDataset will force load the given datasets into memory
     auth_dst = IndexedDataset(trainset, auth_idxs)
     synth_dst = IndexedDataset(trainset, synth_idxs)
-
-    if args.extend_dataset:
-        # extending dataset with testset
-        targets = copy.deepcopy(list(auth_dst.targets))
-        cats_dogs_dst, cats_dogs_targets = load_dst("train.zip")
-        targets.extend(cats_dogs_targets)
-
-        auth_dst = ConcatDataset([auth_dst, cats_dogs_dst])
-        auth_dst.targets = targets
-
-        # we don't do interleaving with extend_dataset
-        args.AR = 1
-        args.SR = 0
 
     num_classes = args.num_classes
     num_clients = args.K
@@ -158,7 +164,7 @@ def run_FedFA():
         balance=None,
         partition="dirichlet",
         # num_shards=200,
-        dir_alpha=0.4,
+        dir_alpha=0.5,
         seed=1,
     )
     # generate partition report
@@ -181,17 +187,6 @@ def run_FedFA():
             noniid_labeldir_part_df[col] * noniid_labeldir_part_df["Amount"]
         ).astype(int)
 
-    # select first 10 clients for bar plot
-    # noniid_labeldir_part_df[col_names].iloc[:10].plot.barh(stacked=True)
-    # # plt.tight_layout()
-    # plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    # plt.xlabel("sample num")
-    # plt.savefig(
-    #     f"data/CIFAR10//cifar10_noniid_labeldir_clients_10.png",
-    #     dpi=400,
-    #     bbox_inches="tight",
-    # )
-
     # split dataset into training and testing
 
     trainset_sample_rate = args.trainset_sample_rate
@@ -204,112 +199,17 @@ def run_FedFA():
         args, testset, number_perclass, noniid_labeldir_part_df
     )
 
-    # training_number = {j: {} for j in range(args.K)}
-    #
-    # for i in range(args.K):
-    #     training_number[i] = {j: 0 for j in range(num_classes)}
-    #     label_class = set(
-    #         np.array(trainset.targets)[list(dict_users_train[i])].tolist()
-    #     )
-    #     # print(list(label_class))
-    #     for k in label_class:
-    #         training_number[i][k] = list(
-    #             np.array(trainset.targets)[list(dict_users_train[i])]
-    #         ).count(k)
-    #
-    # df_training_number = []
-    # df_training_number = pd.DataFrame(df_training_number)
-    # for i in range(args.K):
-    #     temp = pd.Series(training_number[i])
-    #     df_training_number[i] = temp
-    #
-    # df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
-    # df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
-    #
-    # test_number = {j: {} for j in range(args.K)}
-    #
-    # for i in range(args.K):
-    #     test_number[i] = {j: 0 for j in range(num_classes)}
-    #     label_class = set(np.array(testset.targets)[list(dict_users_test[i])].tolist())
-    #     # print(list(label_class))
-    #     for k in label_class:
-    #         test_number[i][k] = list(
-    #             np.array(testset.targets)[list(dict_users_test[i])]
-    #         ).count(k)
-    #
-    # df_test_number = []
-    # df_test_number = pd.DataFrame(df_test_number)
-    # for i in range(args.K):
-    #     temp = pd.Series(test_number[i])
-    #     df_test_number[i] = temp
-    #
-    # df_test_number["Col_sum"] = df_test_number.apply(lambda x: x.sum(), axis=1)
-    # df_test_number.loc["Row_sum"] = df_test_number.apply(lambda x: x.sum())
-    #
-    # # perform partition
-    # iid_part = FMNISTPartitioner(
-    #     trainset.targets, num_clients=num_clients, partition="iid", seed=1
-    # )
-    # # generate partition report
-    # csv_file = "data/CIFAR10/cifar10_iid_clients_10.csv"
-    # partition_report(
-    #     trainset.targets,
-    #     iid_part.client_dict,
-    #     class_num=num_classes,
-    #     verbose=False,
-    #     file=csv_file,
-    # )
-    #
-    # iid_part_df = pd.read_csv(csv_file, header=1)
-    # iid_part_df = iid_part_df.set_index("client")
-    # for col in col_names:
-    #     iid_part_df[col] = (iid_part_df[col] * iid_part_df["Amount"]).astype(int)
-    #
-    # # select first 10 clients for bar plot
-    # iid_part_df[col_names].iloc[:10].plot.barh(stacked=True)
-    # # plt.tight_layout()
-    # plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    # plt.xlabel("sample num")
-    # plt.savefig(
-    #     f"data/CIFAR10/cifar10_iid_clients_10.png", dpi=400, bbox_inches="tight"
-    # )
-    # dict_users_train_iid = trainset_sampling_label(
-    #     args, trainset, trainset_sample_rate, rare_class_nums, iid_part
-    # )
-    # dict_users_test_iid = testset_sampling(args, testset, number_perclass, iid_part_df)
-    #
-    # training_number = {j: {} for j in range(args.K)}
-    #
-    # for i in range(args.K):
-    #     training_number[i] = {j: 0 for j in range(num_classes)}
-    #     label_class = set(
-    #         np.array(trainset.targets)[list(dict_users_train_iid[i])].tolist()
-    #     )
-    #     # print(list(label_class))
-    #     for k in label_class:
-    #         training_number[i][k] = list(
-    #             np.array(trainset.targets)[list(dict_users_train_iid[i])]
-    #         ).count(k)
-    #
-    # df_training_number = []
-    # df_training_number = pd.DataFrame(df_training_number)
-    # for i in range(args.K):
-    #     temp = pd.Series(training_number[i])
-    #     df_training_number[i] = temp
-    #
-    # df_training_number["Col_sum"] = df_training_number.apply(lambda x: x.sum(), axis=1)
-    # df_training_number.loc["Row_sum"] = df_training_number.apply(lambda x: x.sum())
-
     print("model:", args.model)
     total_params = sum(p.numel() for p in specf_model.parameters())
     print("parameters:", total_params)
 
     # syn_dst = SyntheticCIFAR10()
-    syn_noniid_labeldir_part = CIFAR10Partitioner(
+    # synthetic data should be homogeneous
+    syn_iid_labeldir_part = CIFAR10Partitioner(
         synth_dst.targets,
         num_clients=num_clients,
-        balance=None,
-        partition="shards",
+        balance=True,
+        partition="iid",
         num_shards=200,
         seed=1,
     )
@@ -318,7 +218,7 @@ def run_FedFA():
         synth_dst,
         trainset_sample_rate,
         rare_class_nums,
-        syn_noniid_labeldir_part,
+        syn_iid_labeldir_part,
     )
 
     if args.extend_dataset:
