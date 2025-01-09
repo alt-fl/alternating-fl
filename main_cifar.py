@@ -20,6 +20,7 @@ import psutil
 from fedlab.utils.dataset import FMNISTPartitioner, CIFAR10Partitioner
 from fedlab.utils.functional import partition_report, save_dict
 
+from CINIC10 import read_dataset
 from args_cifar10_c2 import args_parser
 import server_se1 as server
 import model
@@ -117,19 +118,9 @@ def run_FedFA():
         )
     else:
         # use CINIC-10 dataset, where validation is merged with trainset
-        cinic_dir = "./cinic10"
-        cinic_mean = [0.47889522, 0.47227842, 0.43047404]
-        cinic_std = [0.24205776, 0.23828046, 0.25874835]
-        trans_cinic10 = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=cinic_mean, std=cinic_std),
-            ]
-        )
-        trainset = ImageFolder(cinic_dir + "/train", transform=trans_cinic10)
-        testset = ImageFolder(cinic_dir + "/test", transform=trans_cinic10)
-        # force load testset into memery for faster processing
-        testset = IndexedDataset(testset, list(range(len(testset))))
+        trainset, testset = read_dataset("cinic10.zip", "data/CIFAR10/")
+        print(f"Train set: {len(trainset)}")
+        print(f"Test set: {len(testset)}")
 
     auth_idxs = []
     synth_idxs = []
@@ -144,7 +135,6 @@ def run_FedFA():
         auth_idxs.extend(auth_idx)
         synth_idxs.extend(synth_idx)
 
-    # note that IndexedDataset will force load the given datasets into memory
     auth_dst = IndexedDataset(trainset, auth_idxs)
     synth_dst = IndexedDataset(trainset, synth_idxs)
 
