@@ -29,6 +29,12 @@ def args_parser():
         action=argparse.BooleanOptionalAction,
         help="whether to use the extended dataset",
     )
+    parser.add_argument("--balance", type=str, default="self", help="'self' or 'all'")
+    parser.add_argument(
+        "--balanced_auth",
+        action=argparse.BooleanOptionalAction,
+        help="use iid authentic dataset",
+    )
 
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")

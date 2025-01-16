@@ -1,3 +1,4 @@
+from argparse import ArgumentError
 import torch
 import torch.nn.functional as F
 import torchvision
@@ -34,7 +35,7 @@ from utils.local_test import test_on_localdataset
 from utils.training_loss import train_loss_show, train_localacc_show
 from utils.sampling import testset_sampling, trainset_sampling, trainset_sampling_label
 from utils.tSNE import FeatureVisualize
-from synthetic_data import IndexedDataset, SyntheticCIFAR10
+from synthetic_data import IndexedDataset, SyntheticCIFAR10, balance_auth_dst
 
 args = args_parser()
 
@@ -85,7 +86,7 @@ def seed_torch(seed=args.seed):
 def run_FedFA():
     seed_torch()
 
-    results_path = f"results/{args.model.lower()}/{"cifar10" if not args.extend_dataset else "cinic10"}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
+    results_path = f"results/{args.model.lower()}/{'cifar10' if not args.extend_dataset else 'cinic10'}/balance_{args.balance}_{1 if args.balanced_auth else 0}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
     args.path = results_path
     if not os.path.exists(results_path):
         print(f"Creating directory {results_path}")
@@ -148,15 +149,24 @@ def run_FedFA():
     # plt.rcParams["figure.facecolor"] = "white"
 
     # perform partition
-    noniid_labeldir_part = CIFAR10Partitioner(
-        auth_dst.targets,
-        num_clients=num_clients,
-        balance=None,
-        partition="dirichlet",
-        # num_shards=200,
-        dir_alpha=0.5,
-        seed=1,
-    )
+    if not args.balanced_auth:
+        noniid_labeldir_part = CIFAR10Partitioner(
+            auth_dst.targets,
+            num_clients=num_clients,
+            balance=None,
+            partition="dirichlet",
+            # num_shards=200,
+            dir_alpha=0.5,
+            seed=1,
+        )
+    else:
+        noniid_labeldir_part = CIFAR10Partitioner(
+            auth_dst.targets,
+            num_clients=num_clients,
+            balance=True,
+            partition="iid",
+            seed=1,
+        )
     # generate partition report
     csv_file = (
         "data/CIFAR10/cifar10_noniid_labeldir_clients_"
@@ -193,36 +203,51 @@ def run_FedFA():
     total_params = sum(p.numel() for p in specf_model.parameters())
     print("parameters:", total_params)
 
-    # syn_dst = SyntheticCIFAR10()
-    # synthetic data should be homogeneous
-    syn_iid_labeldir_part = CIFAR10Partitioner(
-        synth_dst.targets,
-        num_clients=num_clients,
-        balance=True,
-        partition="iid",
-        num_shards=200,
-        seed=1,
-    )
-    syn_dict_users = trainset_sampling_label(
-        args,
-        synth_dst,
-        trainset_sample_rate,
-        rare_class_nums,
-        syn_iid_labeldir_part,
-    )
+    if args.balance == "self":
+        # synthetic data should be homogeneous
+        syn_iid_labeldir_part = CIFAR10Partitioner(
+            synth_dst.targets,
+            num_clients=num_clients,
+            balance=True,
+            partition="iid",
+            num_shards=200,
+            seed=1,
+        )
+        syn_dict_users = trainset_sampling_label(
+            args,
+            synth_dst,
+            trainset_sample_rate,
+            rare_class_nums,
+            syn_iid_labeldir_part,
+        )
+    elif args.balance == "all":
+        syn_dict_users = balance_auth_dst(auth_dst, dict_users_train, synth_dst)
+    else:
+        raise ArgumentError(
+            None, "argument '--balance' should have value 'self' or 'all'"
+        )
+
+    summed = [0] * len(syn_dict_users)
+    for k in syn_dict_users:
+        counts = [0] * 10
+        for id in syn_dict_users[k]:
+            counts[synth_dst[id][1]] += 1
+        print(f"Client {k} (syn): {counts}")
+        summed[k] = sum(counts)
+    print(f"Total synthetic samples: {sum(summed)}, {summed}")
 
     if args.extend_dataset:
         synth_dst = None
         syn_dict_users = None
 
-    summed = 0
+    summed = [0] * len(dict_users_train)
     for k in dict_users_train:
         counts = [0] * 10
         for id in dict_users_train[k]:
             counts[auth_dst[id][1]] += 1
-        print(f"Client {k}: {counts}")
-        summed += sum(counts)
-    print(f"Total samples: {summed}")
+        print(f"Client {k} (auth): {counts}")
+        summed[k] = sum(counts)
+    print(f"Total authentic samples: {sum(summed)}, {summed}")
 
     serverz = server.Server(
         # args, specf_model, trainset, dict_users_train

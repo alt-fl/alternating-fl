@@ -103,3 +103,49 @@ class SyntheticCIFAR10(Dataset):
         image = torch.tensor(self.data[idx]).float() / 255.0  # Normalize to [0, 1]
         label = self.targets[idx]
         return image, label
+
+
+def balance_auth_dst(auth_dst, dict_users, syn_dst, num_classes=10):
+    """
+    Returns the partitioning of synthetic dataset that balances out the whole
+    dataset (auth + synth together) by compensating for the imbalance in the
+    authentic data paritioning
+    """
+
+    dict_users_syn = {}
+    counts = {}
+    dst_sizes = []
+
+    for k in dict_users:
+        dict_users_syn[k] = []
+        counts[k] = [0] * 10
+        for idx in dict_users[k]:
+            counts[k][auth_dst[idx][1]] += 1
+        dst_sizes.append(sum(counts[k]))
+
+    dst_sizes = np.array(dst_sizes) / sum(dst_sizes)
+    class_distrs = {}
+    for i in range(num_classes):
+        distr = []
+        for k in counts:
+            distr.append(counts[k][i])
+        distr = np.array(distr)
+
+        sol = distr.sum() - distr
+        sol = sol / sol.sum()
+
+        # also scale the solution by weights, where the weights are determined
+        # by the dataset size of each client
+        sol = sol * dst_sizes
+        sol = sol / sol.sum()
+
+        class_distrs[i] = sol
+
+        indices = np.where(syn_dst.targets == i)[0]
+        samples_per_client = np.random.multinomial(len(indices), sol)
+        start = 0
+        for k, num_samples in enumerate(samples_per_client):
+            dict_users_syn[k].extend(indices[start : start + num_samples])
+            start += num_samples
+
+    return dict_users_syn
