@@ -37,8 +37,6 @@ from utils.sampling import testset_sampling, trainset_sampling, trainset_samplin
 from utils.tSNE import FeatureVisualize
 from synthetic_data import IndexedDataset, SyntheticCIFAR10, balance_auth_dst
 
-from torchsummary import summary
-
 args = args_parser()
 
 
