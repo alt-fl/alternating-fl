@@ -37,6 +37,8 @@ from utils.sampling import testset_sampling, trainset_sampling, trainset_samplin
 from utils.tSNE import FeatureVisualize
 from synthetic_data import IndexedDataset, SyntheticCIFAR10, balance_auth_dst
 
+from torchsummary import summary
+
 args = args_parser()
 
 
@@ -99,7 +101,10 @@ def run_FedFA():
     Train_model = True
 
     C = "2CNN_2"
-    specf_model = model.ClientModel(args, name="cifar10").to(args.device)
+    if "mobilenet" in args.model.lower():
+        specf_model = model.CustomMobileNet(num_classes=10).to(args.device)
+    else:
+        specf_model = model.ClientModel(args, name="cifar10").to(args.device)
 
     if not args.extend_dataset:
         trans_cifar10 = transforms.Compose(

@@ -1,26 +1,37 @@
+import torch
 from torch import nn
 import torch.nn.functional as F
 
-# from torchvision.models import mobilenet_v3_small
-#
-#
-# class CustomModel(nn.Module):
-#     def __init__(self, num_classes=10):
-#         super(CustomModel, self).__init__()
-#         self.mobilenet = mobilenet_v3_small(weights=False)
-#
-#         self.prev_last = self.mobilenet.classifier[-2]
-#         # modify the last layer to output correct num of classes
-#         self.classifier = nn.Linear(in_features=1024, out_features=num_classes)
-#         # remove the last two layers because we need them for FedFA
-#         self.mobilenet.classifier[:-2]
-#         print(self.mobilenet.classifier)
-#
-#     def forward(self, x):
-#         x = self.mobilenet.forward(x)
-#         y_features = self.prev_last(x)
-#         out = self.classifier(y_features)
-#         return y_features, out
+from torchvision.models import mobilenet_v3_small
+
+
+class CustomMobileNet(nn.Module):
+    def __init__(self, num_classes=10):
+        super(CustomMobileNet, self).__init__()
+
+        # copy over mobilenet to our custom network, need to do this because
+        # we need to modify the network and calculate encryption mask, so
+        # copying the architecture is easier than modifying existing functions...
+        mobilenet = mobilenet_v3_small(weights=False)
+        self.features = mobilenet.features
+        self.avgpool = mobilenet.avgpool
+        # classifier adapted for our dataset
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(576, 1024, bias=True),  # dims_feature = 1024 for mobilnet
+            nn.Hardswish(inplace=True),
+            nn.Dropout(p=0.2, inplace=True),
+        )
+        self.classifier = nn.Linear(1024, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+
+        y_features = self.feature_extractor(x)
+        x = self.classifier(y_features)
+        return y_features, x
 
 
 class ClientModel(nn.Module):
