@@ -1,6 +1,27 @@
 from torch import nn
 import torch.nn.functional as F
 
+# from torchvision.models import mobilenet_v3_small
+#
+#
+# class CustomModel(nn.Module):
+#     def __init__(self, num_classes=10):
+#         super(CustomModel, self).__init__()
+#         self.mobilenet = mobilenet_v3_small(weights=False)
+#
+#         self.prev_last = self.mobilenet.classifier[-2]
+#         # modify the last layer to output correct num of classes
+#         self.classifier = nn.Linear(in_features=1024, out_features=num_classes)
+#         # remove the last two layers because we need them for FedFA
+#         self.mobilenet.classifier[:-2]
+#         print(self.mobilenet.classifier)
+#
+#     def forward(self, x):
+#         x = self.mobilenet.forward(x)
+#         y_features = self.prev_last(x)
+#         out = self.classifier(y_features)
+#         return y_features, out
+
 
 class ClientModel(nn.Module):
     def __init__(self, args, name):
@@ -23,6 +44,7 @@ class ClientModel(nn.Module):
                 )  # args.dims_feature = 168
                 self.classifier = nn.Linear(self.args.dims_feature, self.n_cls)
             case "cifar10":
+                factor = 2 if args.model == "LeNet5_large" else 1
                 self.n_cls = 10
                 self.conv1 = nn.Conv2d(
                     in_channels=3, out_channels=6, kernel_size=5, padding=2
@@ -30,9 +52,9 @@ class ClientModel(nn.Module):
                 self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
                 self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5)
                 self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-                self.fc1 = nn.Linear(576, 120)
+                self.fc1 = nn.Linear(576, 120 * factor)
                 self.fc2 = nn.Linear(
-                    120, self.args.dims_feature
+                    120 * factor, self.args.dims_feature
                 )  # args.dims_feature = 84
                 self.classifier = nn.Linear(self.args.dims_feature, self.n_cls)
             case _:
