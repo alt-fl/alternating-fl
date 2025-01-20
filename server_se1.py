@@ -140,7 +140,9 @@ class Server:
         last_models = {}
 
         for t, is_auth in InterleavingRounds(
-            rounds=self.args.r, ratio=(self.args.AR, self.args.SR)
+            rounds=self.args.r,
+            ratio=(self.args.AR, self.args.SR),
+            syn_only=self.args.init_synthetic_rounds,
         ):
             print(f"\n{'Authentic' if is_auth else 'Synthetic'} round {t + 1}:")
             # sampling

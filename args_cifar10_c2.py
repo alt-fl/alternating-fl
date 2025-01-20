@@ -35,6 +35,12 @@ def args_parser():
         action=argparse.BooleanOptionalAction,
         help="use iid authentic dataset",
     )
+    parser.add_argument(
+        "--init_synthetic_rounds",
+        type=int,
+        default=0,
+        help="use only synthetic data for first n rounds",
+    )
 
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")

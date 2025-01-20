@@ -13,17 +13,25 @@ class InterleavingRounds(Iterator):
     frequencies of authentic and synthetic rounds. I.e., (AR, SR) means that
     it will have AR rounds of authentic rounds followed by SR rounds of
     synthetic rounds, and so on.
+
+    syn_only: defines the first n rounds that will exclusively synthetic,
+              regardless of the interleaivng ratio
     """
 
-    def __init__(self, rounds=10, ratio=(1, 0)) -> None:
+    def __init__(self, rounds=10, ratio=(1, 0), syn_only=None) -> None:
         auth, syn = ratio
         self.rounds = iter(range(rounds))
         self.rate = auth + syn
         self.auth = range(0, auth)
         self.syn = range(auth, auth + syn)
+        self.syn_only = syn_only
 
     def __next__(self):
         round = next(self.rounds)
+
+        if self.syn_only and self.syn_only > round:
+            return round, False
+
         mod = round % self.rate
         is_auth = mod in self.auth
 

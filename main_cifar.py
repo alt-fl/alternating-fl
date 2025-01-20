@@ -86,7 +86,7 @@ def seed_torch(seed=args.seed):
 def run_FedFA():
     seed_torch()
 
-    results_path = f"results/{args.model.lower()}/{'cifar10' if not args.extend_dataset else 'cinic10'}/balance_{args.balance}_{1 if args.balanced_auth else 0}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
+    results_path = f"results/{args.model.lower()}/{'cifar10' if not args.extend_dataset else 'cinic10'}/balance_{args.balance}_{1 if args.balanced_auth else 0}_init{args.init_synthetic_rounds}/fhe{str(args.ratio).replace('.', '_')}_inter{args.AR}_{args.SR}/"
     args.path = results_path
     if not os.path.exists(results_path):
         print(f"Creating directory {results_path}")
