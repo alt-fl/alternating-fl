@@ -239,10 +239,6 @@ def run_FedFA():
         summed[k] = sum(counts)
     print(f"Total synthetic samples: {sum(summed)}, {summed}")
 
-    if args.extend_dataset:
-        synth_dst = None
-        syn_dict_users = None
-
     summed = [0] * len(dict_users_train)
     for k in dict_users_train:
         counts = [0] * 10
