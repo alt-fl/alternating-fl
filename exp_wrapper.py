@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Tuple
 
 from torch.nn import Module
 from torch.utils.data import Dataset
@@ -16,22 +16,49 @@ class Wrapper:
     experiments, namely:
         1. authentic and synthetic datasets
         2. instantiating the specified model
-        3. handling interleaving ratio
-        4. dynamic epoch, interleaving ratio
     """
 
     def __init__(self, args) -> None:
-        self.data = get_dataset(args.dataset, args.dataset_path)
+        self.args = args
+        self._data = get_dataset(args.dataset, args.dataset_path, args=args)
 
-        self.model = get_model(
+        self._model = get_model(
             args.model, num_classes=10, factor=1, dims_feature=args.dims_feature
         )
 
     def get_data(self) -> Tuple[Dataset, Dataset, Dataset]:
-        return self.data
+        auth_data = self._data.get_authentic_data()
+        syn_data = self._data.get_synthetic_data()
+        test_data = self._data.get_test_data()
+        return (auth_data, syn_data, test_data)
 
     def get_model(self) -> Module:
-        return self.model
+        return self._model
+
+    def get_output(self) -> str:
+        return self.args.output if self.args.output else self.generate_name()
+
+    def partition_data(self) -> Any:
+        return self._data.partition_data()
+
+    def generate_name(self) -> str:
+        """
+        Returns a name that will contains most important information of the
+        experiment, also the arguments should not contain any invalid character
+        for a file
+        """
+        return "-".join(
+            [
+                f"E_{self.args.E}",
+                self.args.model,
+                self.args.dataset,
+                f"eps_{self.args.epsilon:.2f}".replace(".", "_"),
+                f"rho_{self.args.rho_syn / self.args.rho_tot:.2f}".replace(".", "_"),
+                f"syn_balance_{self.args.syn_balance}",
+                f"auth_balance_{1 if self.args.auth_balance else 0}",
+                f"init_syn_{self.args.init_syn_rounds}",
+            ]
+        )
 
 
 def get_wrapper() -> Wrapper:

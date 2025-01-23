@@ -1,19 +1,10 @@
 from pathlib import Path
+from typing import Any
 from torch.utils.data import Dataset
 
-from .abs_data import AbstractData
+from .cifar10 import CIFAR10Data
 
 
-class CINIC10Data(AbstractData):
-    def __init__(self, name: str, path: Path) -> None:
-        self.name = name
-        self.path = path
-
-    def get_authentic_data(self) -> Dataset:
-        return super().get_authentic_data()
-
-    def get_synthetic_data(self) -> Dataset:
-        return super().get_synthetic_data()
-
-    def get_test_data(self) -> Dataset:
-        return super().get_test_data()
+class CINIC10Data(CIFAR10Data):
+    def __init__(self, name: str, path: Path, args: Any = None, **kwargs) -> None:
+        super().__init__(name, path, args, **kwargs)

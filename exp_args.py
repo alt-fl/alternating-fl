@@ -30,35 +30,42 @@ def _parse_args():
         "--r", type=int, default=200, help="number of communication rounds"
     )
     parser.add_argument("--K", type=int, default=100, help="number of total clients")
-    parser.add_argument("--B", type=int, default=64, help="local batch size")  # 128
-    # parser.add_argument("--TB", type=int, default=1000, help="test batch size")
+    parser.add_argument("--B", type=int, default=64, help="local batch size")
     parser.add_argument("--C", type=float, default=0.1, help="client samspling rate")
 
     # experiment settings
+    parser.add_argument("--output", type=str, help="name of the file to output results")
     parser.add_argument(
         "--model",
         type=str,
         default="LeNet5",
-        help="CNN or LeNet5 mode architecture",
+        help="only LeNet5 architecture supported",
     )
+    parser.add_argument("--dataset", type=str, default="cifar10", help="dataset name")
     parser.add_argument("--epsilon", type=float, default=0, help="selective HE ratio")
-    parser.add_argument("--rho", type=int, default=0, help="interleaving ratio")
+    parser.add_argument(
+        "--rho_syn", type=int, default=0, help="number of synthetic rounds"
+    )
+    parser.add_argument(
+        "--rho_tot",
+        type=int,
+        default=0,
+        help="number of total rounds (for interleaving ratio)",
+    )
 
-    # parser.add_argument("--AR", type=int, default=1, help="number of authentic rounds")
-    # parser.add_argument("--SR", type=int, default=0, help="number of synthetic rounds")
     parser.add_argument(
-        "--extend_dataset",
-        action=BooleanOptionalAction,
-        help="whether to use the extended dataset",
-    )
-    parser.add_argument("--balance", type=str, default="self", help="'self' or 'all'")
-    parser.add_argument(
-        "--balanced_auth",
-        action=BooleanOptionalAction,
-        help="use iid authentic dataset",
+        "--syn_balance",
+        type=str,
+        default="self",
+        help="'self' or 'all' to balance synthetic data per se or as a whole",
     )
     parser.add_argument(
-        "--init_synthetic_rounds",
+        "--auth_balance",
+        action=BooleanOptionalAction,
+        help="whether or not to balance authentic dataset",
+    )
+    parser.add_argument(
+        "--init_syn_rounds",
         type=int,
         default=0,
         help="use only synthetic data for first n rounds",
@@ -108,7 +115,6 @@ def _parse_args():
         default=10,
         help="number of per class in one client dataset",
     )
-    parser.add_argument("--dataset", type=str, default="cifar10", help="dataset name")
     parser.add_argument(
         "--skew", type=str, default="label", help="distribution skew setting"
     )
