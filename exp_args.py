@@ -78,6 +78,21 @@ def _parse_args():
         help="use only synthetic data for first n rounds",
     )
 
+    # following arguments used for dynamic local epoch control, we use the formula
+    # acc + base - base^factor
+    parser.add_argument(
+        "--dyn_epoch_base",
+        type=float,
+        default=0.3,
+        help="base accuracy for the dynamic epoch",
+    )
+    parser.add_argument(
+        "--dyn_epoch_factor",
+        type=float,
+        default=1.5,
+        help="the factor that dictates how much more accuracy is needed to finish training",
+    )
+
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")
     parser.add_argument(

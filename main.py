@@ -74,10 +74,10 @@ def log_num_samples_per_class(data, dict_users, num_classes=10):
 def main():
     args = ExperimentArgument()
     wrapper = get_wrapper()
+    seed_torch(args.seed)
 
     print(f"setting: {int(args.C * args.K)}/{args.K} active clients")
 
-    seed_torch(args.seed)
     today = str(date.today())
     filename = wrapper.get_output()
     output_dir = Path(".", today)

@@ -22,8 +22,10 @@ def client_fedfa_cl(
     client_models,
     global_model,
     global_round,
+    global_acc,
     dataset_train,
     dict_users,
+    testset,
     loss_dict,
     he_context,
     secret_key,
@@ -67,21 +69,29 @@ def client_fedfa_cl(
         else:
             local_training_times[k]["decryption"] = 0
 
+        acc = global_acc / 100
+        target_acc = (
+            acc * args.dyn_epoch_base - args.dyn_epoch_base**args.dyn_epoch_factor
+        )
+
         start = time.time()
-        anchorloss_funcs[k], client_models[k], loss = op.fedfa_cl_optimizer(
+        anchorloss_funcs[k], client_models[k], loss, epoch_cnt = op.fedfa_cl_optimizer(
             args,
             anchorloss_funcs[k],
             client_models[k],
             global_model,
             global_round,
+            target_acc,
             dataset_train,
             dict_users[k],
+            testset,
         )
         loss_dict[k].extend(loss)
         end = time.time()
         training_time = end - start
         local_training_times[k]["training"] = training_time
         print(f"\tlocal training time: {training_time:.2f}s")
+        local_training_times[k]["epochs"] = epoch_cnt
 
         if args.epsilon > 0 and is_auth:
             with torch.no_grad():

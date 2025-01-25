@@ -51,6 +51,7 @@ class Server:
         self, model, dataset, dict_users, syn_dst, syn_dict_users, output_path
     ):
         self.args = ExperimentArgument()
+        seed_torch(self.args.seed)
         self.output = output_path
 
         self.nn = copy.deepcopy(model)
@@ -77,6 +78,8 @@ class Server:
             clients = [str(i) for i in range(self.args.K)]
             temp2.name = clients[i]
             self.cls.append(temp2)
+
+        self.global_acc, _ = test_on_globaldataset(self.args, self.nn, testset)
 
         self.enc_params = {}
         self.context = None
@@ -163,8 +166,10 @@ class Server:
                     self.nns,
                     self.nn,
                     t,
+                    self.global_acc,
                     dst,
                     dict_users,
+                    testset,
                     self.loss_dict,
                     he_context,
                     self.sk,
@@ -231,6 +236,7 @@ class Server:
                 self.enc_params = {}
 
             if test_global_model_accuracy:
+                test_start = time.time()
                 # test accuracy on encrypted model --> we expect really bad accuracy
                 enc_acc, _ = test_on_globaldataset(self.args, self.nn, testset)
 
@@ -249,6 +255,7 @@ class Server:
                     # test accuracy on decrypted model --> should see better accuracy
                     real_acc, _ = test_on_globaldataset(self.args, dec_model, testset)
                     acc_list.append(real_acc)
+                    self.global_acc = real_acc
 
                     print(f"acc (encrypted): {enc_acc.item():.2f}%")
                     print(f"acc (decrypted): {real_acc.item():.2f}%")
@@ -256,7 +263,11 @@ class Server:
                     # if no encryption, then the model is not encrypted and
                     # enc_acc gives us the real test accuracy
                     acc_list.append(enc_acc)
+                    self.global_acc = enc_acc
                     print(f"acc: {enc_acc.item():.2f}%")
+                test_end = time.time()
+                test_time = test_end - test_start
+                print(f"testing time: {test_time:.2f}s")
 
             if (t + 1) % self.args.save_every == 0:
                 last_models[t] = {
