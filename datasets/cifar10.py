@@ -44,7 +44,7 @@ class CIFAR10Data(AbstractData):
         if not self.args.auth_balance:
             auth_part = CIFAR10Partitioner(
                 self.auth_data.targets,
-                num_clients=self.args.num_clients,
+                num_clients=self.args.K,
                 balance=True,
                 partition="iid",
                 seed=1,
@@ -52,7 +52,7 @@ class CIFAR10Data(AbstractData):
         else:
             auth_part = CIFAR10Partitioner(
                 self.auth_data.targets,
-                num_clients=self.args.num_clients,
+                num_clients=self.args.K,
                 balance=None,
                 partition="dirichlet",
                 dir_alpha=0.5,
@@ -75,7 +75,7 @@ class CIFAR10Data(AbstractData):
             case "self":
                 syn_part = CIFAR10Partitioner(
                     self.syn_data.targets,
-                    num_clients=self.args.num_clients,
+                    num_clients=self.args.K,
                     balance=True,
                     partition="iid",
                     seed=1,
@@ -97,7 +97,7 @@ class CIFAR10Data(AbstractData):
 
             case _:
                 raise ValueError(
-                    f"syn_balance does not accept value {self.syn_balance!r}"
+                    f"syn_balance does not accept value {self.args.syn_balance!r}"
                 )
-        
+
         return (auth_dict_users, syn_dict_users)

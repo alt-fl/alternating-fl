@@ -47,7 +47,7 @@ class Wrapper:
         experiment, also the arguments should not contain any invalid character
         for a file
         """
-        return "-".join(
+        name = "-".join(
             [
                 f"E_{self.args.E}",
                 self.args.model,
@@ -59,6 +59,7 @@ class Wrapper:
                 f"init_syn_{self.args.init_syn_rounds}",
             ]
         )
+        return name + ".pt"
 
 
 def get_wrapper() -> Wrapper:

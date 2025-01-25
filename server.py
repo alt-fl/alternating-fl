@@ -9,10 +9,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tenseal as ts
 
+import time
+import tracemalloc
+
+from pympler import asizeof
+
 
 import model
 from client import *
-from synthetic_data import InterleavingRounds
 from utils.aggregator import *
 from utils.dispatchor import *
 from utils.optimizer import *
@@ -22,33 +26,11 @@ from utils.sampling import *
 from utils.AnchorLoss import *
 from utils.ContrastiveLoss import *
 from utils.CKA import linear_CKA, kernel_CKA
-from enc_mask import get_enc_mask
 
-import time
-import tracemalloc
+from exp_args import ExperimentArgument
 
-from pympler import asizeof
-
-
-def get_context():
-    # controls precision of the fractional part
-    bits_scale = 40
-    # Create TenSEAL context
-    context = ts.context(
-        ts.SCHEME_TYPE.CKKS,
-        poly_modulus_degree=8192,
-        coeff_mod_bit_sizes=[
-            60,
-            bits_scale,
-            bits_scale,
-            60,
-        ],
-    )
-    # set the scale
-    context.global_scale = pow(2, bits_scale)
-    # galois keys are required to do ciphertext rotations
-    context.generate_galois_keys()
-    return context
+from datasets import InterleavingRounds
+from he import get_he_context, get_enc_mask
 
 
 def seed_torch(seed, test=True):
@@ -65,9 +47,12 @@ def seed_torch(seed, test=True):
 
 class Server:
 
-    def __init__(self, args, model, dataset, dict_users, syn_dst, syn_dict_users):
-        seed_torch(args.seed)
-        self.args = args
+    def __init__(
+        self, model, dataset, dict_users, syn_dst, syn_dict_users, output_path
+    ):
+        self.args = ExperimentArgument()
+        self.output = output_path
+
         self.nn = copy.deepcopy(model)
         self.nns = [[] for i in range(self.args.K)]
         self.p_nns = []
@@ -77,7 +62,7 @@ class Server:
         key = [i for i in range(self.args.K)]
         self.loss_dict = dict((k, [0]) for k in key)
         # self.finetune_loss_dict =  dict((k, [0]) for k in key)
-        self.index_dict = dict((i, []) for i in range(args.r))
+        self.index_dict = dict((i, []) for i in range(self.args.r))
         self.dataset = dataset
         self.dict_users = dict_users
 
@@ -85,7 +70,7 @@ class Server:
         self.syn_dict_users = syn_dict_users
 
         self.anchorloss = AnchorLoss(self.args.num_classes, self.args.dims_feature).to(
-            args.device
+            self.args.device
         )
         for i in range(self.args.K):
             temp2 = copy.deepcopy(self.anchorloss)
@@ -98,15 +83,19 @@ class Server:
         self.sk = None
         self.mask = None
 
-        print(f"\ninterleaving ratio: {self.args.AR}:{self.args.SR}")
+        print(f"\ninterleaving ratio: {self.args.rho_syn / self.args.rho_tot:.2f}")
 
-        if self.args.ratio > 0:
-            print(f"selective homomorphic encryption ratio: {self.args.ratio}")
-            self.context = get_context()
+        if self.args.epsilon > 0:
+            print(f"selective homomorphic encryption ratio: {self.args.epsilon}")
+            self.context = get_he_context()
             self.sk = self.context.secret_key()
             s = time.time()
             self.mask = get_enc_mask(
-                self.args, self.nn, self.dataset, self.dict_users, ratio=self.args.ratio
+                self.args,
+                self.nn,
+                self.dataset,
+                self.dict_users,
+                ratio=self.args.epsilon,
             )
             e = time.time()
             print(f"calculating encryption mask took {e - s:.2f}s")
@@ -115,14 +104,10 @@ class Server:
         self,
         testset,
         dict_users_test,
-        similarity=False,
-        fedbn=False,
         test_global_model_accuracy=False,
     ):
-
-        checkpoint_name = f"checkpoint_seed{self.args.seed}_lr{str(self.args.lr).replace('.', '_')}_E{self.args.E}_new_inter.pt"
-        checkpoint_name = self.args.path + checkpoint_name
-        print(f"the statistics will be logged to {checkpoint_name!r}")
+        checkpoint_path = self.output
+        print(f"the statistics will be logged to {checkpoint_path!r}")
         similarity_dict = {"feature": [], "classifier": []}
 
         round_types = []
@@ -141,8 +126,8 @@ class Server:
 
         for t, is_auth in InterleavingRounds(
             rounds=self.args.r,
-            ratio=(self.args.AR, self.args.SR),
-            syn_only=self.args.init_synthetic_rounds,
+            ratio=(self.args.rho_syn, self.args.rho_tot),
+            syn_only=self.args.init_syn_rounds,
         ):
             print(f"\n{'Authentic' if is_auth else 'Synthetic'} round {t + 1}:")
             # sampling
@@ -226,7 +211,7 @@ class Server:
             anchorloss_size = asizeof.asizeof(self.anchorloss)
             anchorloss_sizes.append(anchorloss_size)
 
-            if self.args.ratio > 0 and enc_params_dict:
+            if self.args.epsilon > 0 and enc_params_dict:
                 start_time = time.time()
                 self.enc_params = fhe_aggregate(
                     index,
@@ -249,7 +234,7 @@ class Server:
                 # test accuracy on encrypted model --> we expect really bad accuracy
                 enc_acc, _ = test_on_globaldataset(self.args, self.nn, testset)
 
-                if self.args.ratio > 0 and self.enc_params:
+                if self.args.epsilon > 0 and self.enc_params:
                     dec_model = copy.deepcopy(self.nn)
                     for name, param in dec_model.named_parameters():
                         if name not in self.mask:
@@ -273,7 +258,7 @@ class Server:
                     acc_list.append(enc_acc)
                     print(f"acc: {enc_acc.item():.2f}%")
 
-            if (t + 1) % 20 == 0:
+            if (t + 1) % self.args.save_every == 0:
                 last_models[t] = {
                     "model": copy.deepcopy(self.nn.state_dict()),
                     "anchorloss": copy.deepcopy(self.anchorloss.state_dict()),
@@ -295,7 +280,7 @@ class Server:
                         "loss_dict": self.loss_dict,
                         "mask": copy.deepcopy(self.mask),
                     },
-                    checkpoint_name,
+                    checkpoint_path,
                 )
                 print(f"Checkpoint of {self.args.model} made at round {t + 1}")
 
@@ -338,7 +323,7 @@ class Server:
                 "loss_dict": self.loss_dict,
                 "mask": copy.deepcopy(self.mask),
             },
-            checkpoint_name,
+            checkpoint_path,
         )
 
         self.nns = [[] for i in range(self.args.K)]

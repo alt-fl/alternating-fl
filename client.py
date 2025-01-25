@@ -83,7 +83,7 @@ def client_fedfa_cl(
         local_training_times[k]["training"] = training_time
         print(f"\tlocal training time: {training_time:.2f}s")
 
-        if args.ratio > 0 and is_auth:
+        if args.epsilon > 0 and is_auth:
             with torch.no_grad():
                 start = time.time()
                 for name, param in model.named_parameters():

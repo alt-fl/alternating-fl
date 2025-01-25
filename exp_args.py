@@ -31,10 +31,14 @@ def _parse_args():
     )
     parser.add_argument("--K", type=int, default=100, help="number of total clients")
     parser.add_argument("--B", type=int, default=64, help="local batch size")
+    parser.add_argument("--TB", type=int, default=1000, help="test batch size")
     parser.add_argument("--C", type=float, default=0.1, help="client samspling rate")
 
     # experiment settings
     parser.add_argument("--output", type=str, help="name of the file to output results")
+    parser.add_argument(
+        "--save_every", type=int, default=20, help="save the checkpoint every n rounds"
+    )
     parser.add_argument(
         "--model",
         type=str,
@@ -42,6 +46,9 @@ def _parse_args():
         help="only LeNet5 architecture supported",
     )
     parser.add_argument("--dataset", type=str, default="cifar10", help="dataset name")
+    parser.add_argument(
+        "--dataset_path", type=str, default="data/CIFAR10/", help="path to the dataset"
+    )
     parser.add_argument("--epsilon", type=float, default=0, help="selective HE ratio")
     parser.add_argument(
         "--rho_syn", type=int, default=0, help="number of synthetic rounds"

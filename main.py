@@ -59,6 +59,7 @@ def seed_torch(seed=1234):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+
 def log_num_samples_per_class(data, dict_users, num_classes=10):
     summed = [0] * len(dict_users)
     for k in dict_users:
@@ -69,6 +70,7 @@ def log_num_samples_per_class(data, dict_users, num_classes=10):
         summed[k] = sum(counts)
     print(f"Total samples: {sum(summed)}, {summed}")
 
+
 def main():
     args = ExperimentArgument()
     wrapper = get_wrapper()
@@ -78,13 +80,14 @@ def main():
     seed_torch(args.seed)
     today = str(date.today())
     filename = wrapper.get_output()
-    output_path = Path(".", today, filename)
+    output_dir = Path(".", today)
+    output_path = Path(output_dir, filename)
 
-    if not output_path.exists():
-        print(f"creating directory {output_path}")
-        output_path.mkdir()
+    if not output_dir.exists():
+        print(f"creating directory {output_dir}")
+        output_dir.mkdir(parents=True)
     else:
-        print(f"directory {output_path} already exists, proceeding...")
+        print(f"directory {output_dir} already exists, proceeding...")
 
     # split dataset into training (authentic and synthetic) and testing
     auth_data, syn_data, test_data = wrapper.get_data()
@@ -105,13 +108,8 @@ def main():
     log_num_samples_per_class(syn_data, syn_dict_users, num_classes=args.num_classes)
 
     server = Server(
-        args,
-        model,
-        auth_data,
-        auth_dict_users,
-        syn_data,
-        syn_dict_users,
-    )  
+        model, auth_data, auth_dict_users, syn_data, syn_dict_users, output_path
+    )
     print("global_model:", server.nn.state_dict)
 
     # begin model training
@@ -119,7 +117,6 @@ def main():
 
 
 if __name__ == "__main__":
-
     start_time = time.time()
     tracemalloc.start()
     psutil.cpu_percent()
