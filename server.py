@@ -79,8 +79,6 @@ class Server:
             temp2.name = clients[i]
             self.cls.append(temp2)
 
-        self.global_acc, _ = test_on_globaldataset(self.args, self.nn, testset)
-
         self.enc_params = {}
         self.context = None
         self.sk = None
@@ -112,6 +110,8 @@ class Server:
         checkpoint_path = self.output
         print(f"the statistics will be logged to {checkpoint_path!r}")
         similarity_dict = {"feature": [], "classifier": []}
+
+        global_acc = 0.0
 
         round_types = []
         acc_list = []
@@ -166,7 +166,7 @@ class Server:
                     self.nns,
                     self.nn,
                     t,
-                    self.global_acc,
+                    global_acc,
                     dst,
                     dict_users,
                     testset,
@@ -255,7 +255,7 @@ class Server:
                     # test accuracy on decrypted model --> should see better accuracy
                     real_acc, _ = test_on_globaldataset(self.args, dec_model, testset)
                     acc_list.append(real_acc)
-                    self.global_acc = real_acc
+                    global_acc = real_acc
 
                     print(f"acc (encrypted): {enc_acc.item():.2f}%")
                     print(f"acc (decrypted): {real_acc.item():.2f}%")
@@ -263,7 +263,7 @@ class Server:
                     # if no encryption, then the model is not encrypted and
                     # enc_acc gives us the real test accuracy
                     acc_list.append(enc_acc)
-                    self.global_acc = enc_acc
+                    global_acc = enc_acc
                     print(f"acc: {enc_acc.item():.2f}%")
                 test_end = time.time()
                 test_time = test_end - test_start

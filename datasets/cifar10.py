@@ -41,7 +41,7 @@ class CIFAR10Data(AbstractData):
         return self.test_data
 
     def partition_data(self) -> Tuple[Any, Any]:
-        if not self.args.auth_balance:
+        if self.args.auth_balance:
             auth_part = CIFAR10Partitioner(
                 self.auth_data.targets,
                 num_clients=self.args.K,

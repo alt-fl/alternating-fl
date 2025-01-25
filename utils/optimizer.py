@@ -169,6 +169,7 @@ def fedfa_cl_optimizer(
         if testset:
             client_model.eval()
             acc, _ = test_on_globaldataset(args, client_model, testset)
+            acc = acc / 100
         epoch += 1
 
     anchorloss.anchor.data = epoch_mean_anchor

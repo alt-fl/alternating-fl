@@ -71,7 +71,7 @@ def client_fedfa_cl(
 
         acc = global_acc / 100
         target_acc = (
-            acc * args.dyn_epoch_base - args.dyn_epoch_base**args.dyn_epoch_factor
+            acc + args.dyn_epoch_base - args.dyn_epoch_base * acc**args.dyn_epoch_factor
         )
 
         start = time.time()

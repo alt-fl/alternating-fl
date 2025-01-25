@@ -41,7 +41,7 @@ def test_on_globaldataset(args, global_model, dataset_test):
     for batch_idx, (imgs, labels) in enumerate(Dte):
         # need to comment out this line to prevent weird stuff from happening
         # since we also use this function during training
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         with torch.no_grad():
             imgs = imgs.to(args.device)
             labels = labels.type(torch.LongTensor).to(args.device)
@@ -216,4 +216,3 @@ def globalmodel_test_on_specifdataset(
     #             test_loss, correct, len(Dte.dataset), accuracy))
 
     return accuracy, test_loss
-
