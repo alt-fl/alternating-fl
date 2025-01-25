@@ -25,7 +25,7 @@ class InterleavingRounds(Iterator):
         if self.syn_only and self.syn_only > round:
             return round, False
 
-        is_auth = round % self.rho_tot - self.rho_syn
+        is_auth = round % self.rho_tot < self.rho_tot - self.rho_syn
 
         return round, is_auth
 
