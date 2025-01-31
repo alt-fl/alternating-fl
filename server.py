@@ -31,6 +31,7 @@ from exp_args import ExperimentArgument
 
 from datasets import InterleavingRounds
 from he import get_he_context, get_enc_mask
+from training.epochs import get_transition
 
 
 def seed_torch(seed, test=True):
@@ -69,6 +70,8 @@ class Server:
 
         self.syn_dst = syn_dst
         self.syn_dict_users = syn_dict_users
+
+        self.epoch_transition = get_transition(self.args)
 
         self.anchorloss = AnchorLoss(self.args.num_classes, self.args.dims_feature).to(
             self.args.device
@@ -110,8 +113,6 @@ class Server:
         checkpoint_path = self.output
         print(f"the statistics will be logged to {checkpoint_path!r}")
         similarity_dict = {"feature": [], "classifier": []}
-
-        global_acc = 0.0
 
         round_types = []
         acc_list = []
@@ -166,10 +167,9 @@ class Server:
                     self.nns,
                     self.nn,
                     t,
-                    global_acc,
+                    self.epoch_transition,
                     dst,
                     dict_users,
-                    testset,
                     self.loss_dict,
                     he_context,
                     self.sk,

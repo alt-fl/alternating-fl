@@ -41,10 +41,9 @@ def fedfa_cl_optimizer(
     client_model,
     global_model,
     global_round,
-    target_acc,
     dataset_train,
     dict_user,
-    testset,
+    epoch,
 ):
 
     seed_torch(seed=args.seed)
@@ -76,10 +75,8 @@ def fedfa_cl_optimizer(
     # anchorloss_opt = torch.optim.SGD(anchorloss.parameters(),lr=0.001)#, momentum=0.99
     epoch_loss = []
 
-    epoch = 0
-    acc = 0
-    # for epoch in range(args.E):
-    while epoch < args.E and acc < target_acc:
+    # while epoch < args.E and acc < target_acc:
+    for epoch in range(epoch):
         batch_loss = []
         client_model.train()
         batch_mean_anchor = torch.zeros_like(anchorloss.anchor.data).to(args.device)
@@ -166,12 +163,12 @@ def fedfa_cl_optimizer(
         epoch_loss.append(sum(batch_loss) / len(batch_loss))
 
         # test accuracy, if testset is given
-        if testset:
-            client_model.eval()
-            acc, _ = test_on_globaldataset(args, client_model, testset)
-            acc = acc / 100
-        epoch += 1
+        # if testset:
+        #     client_model.eval()
+        #     acc, _ = test_on_globaldataset(args, client_model, testset)
+        #     acc = acc / 100
+        # epoch += 1
 
     anchorloss.anchor.data = epoch_mean_anchor
 
-    return anchorloss, client_model, epoch_loss, epoch + 1
+    return anchorloss, client_model, epoch_loss
