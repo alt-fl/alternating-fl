@@ -91,6 +91,7 @@ def client_fedfa_cl(
         training_time = end - start
         local_training_times[k]["training"] = training_time
         print(f"\tlocal training time: {training_time:.2f}s")
+        local_training_times[k]["epoch"] = epoch
 
         if args.epsilon > 0 and is_auth:
             with torch.no_grad():
