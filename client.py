@@ -73,7 +73,7 @@ def client_fedfa_cl(
         #     acc + args.dyn_epoch_base - args.dyn_epoch_base * acc**args.dyn_epoch_factor
         # )
 
-        epoch = epoch_transition.estimate_epoch(global_round + 1)
+        epoch = epoch_transition.estimate_epoch(global_round)
 
         start = time.time()
         anchorloss_funcs[k], client_models[k], loss = op.fedfa_cl_optimizer(

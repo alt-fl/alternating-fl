@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
-import math
+from math import e, log10
+from typing import Type
 
 
 class EpochTransition(ABC):
@@ -18,54 +19,93 @@ class NoTransition(EpochTransition):
 
 
 class BaseTransition(EpochTransition):
-    def __init__(self, epoch_min, epoch_max, dropoff_rate=1.0) -> None:
-        self.epoch_min = epoch_min
+    def __init__(self, epoch_max: int, epoch_min=5, n=10) -> None:
         self.epoch_max = epoch_max
-        self.rate = dropoff_rate
-
-
-class InverseLinearTransition(BaseTransition):
-    def estimate_epoch(self, round_num: int) -> int:
-        a, b, r = self.epoch_max, self.epoch_min, self.rate
-        est = b + (a - b) / (r * round_num)
-        return int(est)
-
-
-class ExponentialTransition(BaseTransition):
-    def estimate_epoch(self, round_num: int) -> int:
-        a, b, r = self.epoch_max, self.epoch_min, self.rate
-        e = math.e
-        est = b + (a - b) / e ** (r * (round_num - 1))
-        return int(est)
-
-
-class LinearTransition(EpochTransition):
-    def __init__(self, epoch_min, epoch_max, n=10) -> None:
         self.epoch_min = epoch_min
-        self.epoch_max = epoch_max
         self.n = n
 
-    def estimate_epoch(self, round_num: int) -> int:
-        a, b, n = self.epoch_max, self.epoch_min, self.n
-        if round_num > n:
-            return self.epoch_min
-        est = a - (a - b) / n * (round_num - 1)
-        return int(est)
 
-
-class LogarithmicTransition(EpochTransition):
-    def __init__(self, epoch_min, epoch_max, n=10) -> None:
-        self.epoch_min = epoch_min
-        self.epoch_max = epoch_max
-        self.n = n
-
+class LinearTransition(BaseTransition):
     def estimate_epoch(self, round_num: int) -> int:
         a, b, n = self.epoch_max, self.epoch_min, self.n
         if round_num >= n:
             return self.epoch_min
 
-        est = -math.log10(round_num / n) * (a - b) + b
+        est = a - (a - b) * round_num / n
         return int(est)
+
+
+class QuadraticTransition(BaseTransition):
+    def estimate_epoch(self, round_num: int) -> int:
+        a, b, n = self.epoch_max, self.epoch_min, self.n
+        if round_num >= n:
+            return self.epoch_min
+
+        est = a - (a - b) * (round_num / n) ** 2
+        return int(est)
+
+
+class ExponentialTransition(BaseTransition):
+    def estimate_epoch(self, round_num: int) -> int:
+        a, b, n = self.epoch_max, self.epoch_min, self.n
+        if round_num >= n:
+            return self.epoch_min
+
+        est = (a - b) * (e**-round_num) + b
+        return int(est)
+
+
+class InverseVariationTransition(BaseTransition):
+    def estimate_epoch(self, round_num: int) -> int:
+        a, b, n = self.epoch_max, self.epoch_min, self.n
+        if round_num >= n:
+            return self.epoch_min
+
+        est = b + (a - b) / (round_num + 1)
+        return int(est)
+
+
+class LogarithmicTransition(BaseTransition):
+    def estimate_epoch(self, round_num: int) -> int:
+        a, b, n = self.epoch_max, self.epoch_min, self.n
+        if round_num >= n:
+            return self.epoch_min
+
+        est = a - (a - b) * log10(round_num + 1) / log10(n + 1)
+        return int(est)
+
+
+def get_total_epochs(trans: EpochTransition, n: int) -> int:
+    return sum(map(trans.estimate_epoch, range(0, n)))
+
+
+def estimate_max_epoch(
+    budget: int, transition_func: Type[BaseTransition], n=10, epoch_min=5
+) -> int:
+    """
+    Brute-force binary search for the largest max epoch without exceeding the
+    specified budget for the given transition function
+    """
+    # initial values, the max epoch must be at least 1 and at most as much as
+    # the budget
+    lower = 1
+    upper = budget
+    last_res = -1
+    while lower < upper:
+        mid = (upper + lower) // 2
+        trans = transition_func(mid, epoch_min=epoch_min, n=n)
+        res = get_total_epochs(trans, n)
+        if res == last_res:
+            break
+
+        if res <= budget:
+            lower = mid
+        elif res > budget:
+            upper = mid - 1
+
+        last_res = res
+
+    return lower
 
 
 def get_transition(args) -> EpochTransition:
@@ -74,16 +114,21 @@ def get_transition(args) -> EpochTransition:
         return NoTransition(args.E)
 
     name = args.epoch_transition
-    epoch_max, epoch_min, rate = args.epoch_max, args.epoch_min, args.transition_rate
+    epoch_budget, n, epoch_min = args.epoch_budget, args.transition_rounds, args.E
 
     match name.lower():
-        case "inv_lin":
-            return InverseLinearTransition(epoch_min, epoch_max, dropoff_rate=rate)
-        case "exp":
-            return ExponentialTransition(epoch_min, epoch_max, dropoff_rate=rate)
         case "lin":
-            return LinearTransition(epoch_min, epoch_max, n=rate)
+            trans_func = LinearTransition
+        case "quad":
+            trans_func = QuadraticTransition
+        case "exp":
+            trans_func = ExponentialTransition
+        case "inv_var":
+            trans_func = InverseVariationTransition
         case "log":
-            return LogarithmicTransition(epoch_min, epoch_max, n=rate)
+            trans_func = LogarithmicTransition
         case _:
             raise ValueError(f"unknown epoch transition {name!r}")
+
+    max_epoch = estimate_max_epoch(epoch_budget, trans_func, n=n, epoch_min=epoch_min)
+    return trans_func(max_epoch, epoch_min=epoch_min, n=n)

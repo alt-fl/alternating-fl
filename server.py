@@ -72,6 +72,12 @@ class Server:
         self.syn_dict_users = syn_dict_users
 
         self.epoch_transition = get_transition(self.args)
+        if self.args.epoch_transition:
+            trans = str(type(self.epoch_transition))
+            budget = self.args.epoch_budget
+            trans_rounds = self.args.transition_rounds
+            print("\nepoch transition enabled with")
+            print(f"  function={trans}, budget={budget}, and n={trans_rounds}")
 
         self.anchorloss = AnchorLoss(self.args.num_classes, self.args.dims_feature).to(
             self.args.device

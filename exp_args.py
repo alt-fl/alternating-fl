@@ -24,7 +24,7 @@ def _parse_args():
 
     # basic training arguments
     parser.add_argument(
-        "--E", type=int, default=5, help="number of rounds of local training"
+        "--E", type=int, default=5, help="(minimum) number of rounds of local training"
     )
     parser.add_argument(
         "--r", type=int, default=200, help="number of communication rounds"
@@ -78,44 +78,25 @@ def _parse_args():
         help="use only synthetic data for first n rounds",
     )
 
-    parser.add_argument(
-        "--epoch_max",
-        type=int,
-        default=100,
-        help="used with dynamic epoch transition, the maximum number of training epochs",
-    )
-    parser.add_argument(
-        "--epoch_min",
-        type=int,
-        default=5,
-        help="used with dynamic epoch transition, the minimum number of training epochs",
-    )
-    parser.add_argument(
-        "--transition_rate",
-        type=float,
-        default=5,
-        help="control variable for epoch transition, it has different meaning depending on the transition function",
-    )
+    # dynamic epoch transitions
     parser.add_argument(
         "--epoch_transition",
         type=str,
-        help="enable dynamic epoch transition, currently supports one of the following: inv_lin, exp, lin, log",
+        choices=("lin", "quad", "exp", "inv_var", "log"),
+        help="enable dynamic epoch transition",
     )
-
-    # following arguments used for dynamic local epoch control, we use the formula
-    # acc + base - base^factor
-    # parser.add_argument(
-    #     "--dyn_epoch_base",
-    #     type=float,
-    #     default=0.3,
-    #     help="base accuracy for the dynamic epoch",
-    # )
-    # parser.add_argument(
-    #     "--dyn_epoch_factor",
-    #     type=float,
-    #     default=1.5,
-    #     help="the factor that dictates how much more accuracy is needed to finish training",
-    # )
+    parser.add_argument(
+        "--epoch_budget",
+        type=int,
+        default=1000,
+        help="budget for the dynamic epoch transitions",
+    )
+    parser.add_argument(
+        "--transition_rounds",
+        type=int,
+        default=10,
+        help="over how many rounds should the transition occur",
+    )
 
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")
