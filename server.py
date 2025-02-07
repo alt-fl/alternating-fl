@@ -15,7 +15,6 @@ import tracemalloc
 from pympler import asizeof
 
 
-import model
 from client import *
 from utils.aggregator import *
 from utils.dispatchor import *
