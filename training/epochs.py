@@ -75,6 +75,30 @@ class LogarithmicTransition(BaseTransition):
         return int(est)
 
 
+class EaseInTransition(EpochTransition):
+    def __init__(self, epoch_max: int, epoch_min=5, n=10, c=1.0) -> None:
+        self.epoch_max = epoch_max
+        self.epoch_min = epoch_min
+        self.n = n
+        # defines the curvature of the function, when c=1, it is equivalent to
+        # the linear transition
+        self.c = c
+
+    def estimate_epoch(self, round_num: int) -> int:
+        a, b, n, c = self.epoch_max, self.epoch_min, self.n, self.c
+        if round_num >= n:
+            return self.epoch_min
+
+        est = b + (a - b) * (1 - (round_num / n) ** c)
+        return int(est)
+
+    @staticmethod
+    def estimate_max_epoch(budget: int, epoch_min: int, n: int, c: float) -> int:
+        summed = sum([1 - (r / n) ** c for r in range(n)])
+        est_max = (budget - epoch_min * n) / summed + epoch_min
+        return int(est_max)
+
+
 def get_total_epochs(trans: EpochTransition, n: int) -> int:
     return sum(map(trans.estimate_epoch, range(0, n)))
 
@@ -115,6 +139,7 @@ def get_transition(args) -> EpochTransition:
 
     name = args.epoch_transition
     epoch_budget, n, epoch_min = args.epoch_budget, args.transition_rounds, args.E
+    curvature = args.transition_curve
 
     match name.lower():
         case "lin":
@@ -127,6 +152,11 @@ def get_transition(args) -> EpochTransition:
             trans_func = InverseVariationTransition
         case "log":
             trans_func = LogarithmicTransition
+        case "ease_in":
+            max_epoch = EaseInTransition.estimate_max_epoch(
+                epoch_budget, epoch_min, n, curvature
+            )
+            return EaseInTransition(max_epoch, epoch_min=epoch_min, n=n, c=curvature)
         case _:
             raise ValueError(f"unknown epoch transition {name!r}")
 

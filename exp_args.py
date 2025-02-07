@@ -82,7 +82,7 @@ def _parse_args():
     parser.add_argument(
         "--epoch_transition",
         type=str,
-        choices=("lin", "quad", "exp", "inv_var", "log"),
+        choices=("lin", "quad", "exp", "inv_var", "log", "ease_in"),
         help="enable dynamic epoch transition",
     )
     parser.add_argument(
@@ -96,6 +96,12 @@ def _parse_args():
         type=int,
         default=10,
         help="over how many rounds should the transition occur",
+    )
+    parser.add_argument(
+        "--transition_curve",
+        type=float,
+        default=1,
+        help="transition parameter for certain transition function",
     )
 
     # optimizer arguments

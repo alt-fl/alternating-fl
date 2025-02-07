@@ -2,10 +2,10 @@ from epochs import *
 
 if __name__ == "__main__":
     # code for testing the different transition functions
-    n = 10
-    budget = 3000
+    n = 5
+    budget = 10
 
-    def disp(trans):
+    def disp(trans, n=n):
         return [trans.estimate_epoch(round) for round in range(0, n)]
 
     lin_est_max = estimate_max_epoch(budget, LinearTransition, n=n)
@@ -37,3 +37,11 @@ if __name__ == "__main__":
     quad = QuadraticTransition(quad_est_max, n=n)
     print("Quad budget spent", get_total_epochs(quad, n=n))
     print("Quad", disp(quad))
+
+    # special transition function
+    c = 0.1
+    ease_in_est_max = EaseInTransition.estimate_max_epoch(budget, 1, n, c)
+    print("Ease-in estimated max epoch", ease_in_est_max)
+    ease_in = EaseInTransition(ease_in_est_max, epoch_min=1, n=n, c=c)
+    print("Ease-in budget spent", get_total_epochs(ease_in, n=n))
+    print("Ease-in", disp(ease_in))
