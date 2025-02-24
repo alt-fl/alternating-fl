@@ -1,6 +1,10 @@
 from pathlib import Path
 from typing import Any, Tuple
-from torch.utils.data import Dataset
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, Normalize, ToTensor
 
@@ -101,3 +105,31 @@ class CIFAR10Data(AbstractData):
                 )
 
         return (auth_dict_users, syn_dict_users)
+
+    def test(
+        self, model: nn.Module, batch_size=64, device="cpu", **_
+    ) -> Tuple[float, float]:
+        model.eval()
+
+        test_dataloader = DataLoader(
+            self.test_data, batch_size=batch_size, shuffle=True
+        )
+
+        num_samples = len(self.test_data)
+        loss = torch.tensor(0.0)
+        num_correct = torch.tensor(0.0)
+        for imgs, labels in test_dataloader:
+            with torch.no_grad():
+                imgs = imgs.to(device)
+                labels = labels.to(device)
+                _, preds = model(imgs)
+
+                # sum up batch loss
+                loss += F.cross_entropy(preds, labels, reduction="sum")
+                # get the index of the max log-probability
+                y_pred = torch.argmax(preds, dim=1)
+                num_correct += y_pred.eq(labels.data.view_as(y_pred)).sum()
+
+        loss = loss / num_samples
+        accuracy = num_correct / num_samples
+        return accuracy.item(), loss.item()

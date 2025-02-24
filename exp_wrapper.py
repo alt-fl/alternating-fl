@@ -3,6 +3,7 @@ from typing import Any, Tuple
 from torch.nn import Module
 from torch.utils.data import Dataset
 from datasets import get_dataset
+from datasets.abs_data import AbstractData
 from exp_args import ExperimentArgument
 from models import get_model
 
@@ -26,7 +27,10 @@ class Wrapper:
             args.model, num_classes=10, factor=1, dims_feature=args.dims_feature
         )
 
-    def get_data(self) -> Tuple[Dataset, Dataset, Dataset]:
+    def get_data(self) -> AbstractData:
+        return self._data
+
+    def get_data_split(self) -> Tuple[Dataset, Dataset, Dataset]:
         auth_data = self._data.get_authentic_data()
         syn_data = self._data.get_synthetic_data()
         test_data = self._data.get_test_data()

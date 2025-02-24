@@ -90,7 +90,7 @@ def main():
         print(f"directory {output_dir} already exists, proceeding...")
 
     # split dataset into training (authentic and synthetic) and testing
-    auth_data, syn_data, test_data = wrapper.get_data()
+    auth_data, syn_data, test_data = wrapper.get_data_split()
     # perform partition, and get the dictionary specifying the partition of
     # data that belongs to each  clients
     auth_dict_users, syn_dict_users = wrapper.partition_data()
@@ -108,12 +108,18 @@ def main():
     log_num_samples_per_class(syn_data, syn_dict_users, num_classes=args.num_classes)
 
     server = Server(
-        model, auth_data, auth_dict_users, syn_data, syn_dict_users, output_path
+        model,
+        wrapper.get_data(),
+        auth_data,
+        auth_dict_users,
+        syn_data,
+        syn_dict_users,
+        output_path,
     )
-    print("global_model:", server.nn.state_dict)
+    print("global_model:", server.global_model.state_dict)
 
     # begin model training
-    server.fedfa_anchorloss(test_data, None, test_global_model_accuracy=True)
+    server.start_training()
 
 
 if __name__ == "__main__":

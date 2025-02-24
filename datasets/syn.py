@@ -34,8 +34,8 @@ class IndexedDataset(Dataset):
     def __init__(self, dataset, indices, num_classes=10):
         super().__init__()
         self.dataset = dataset
-        self.indices = np.array(indices)
-        self.targets = np.array(dataset.targets)[indices]
+        self.indices = np.array(list(indices))
+        self.targets = np.array(dataset.targets)[self.indices]
         self.num_classes = num_classes
 
     def __len__(self):

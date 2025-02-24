@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Tuple
+
+import torch.nn as nn
 from torch.utils.data import Dataset
 
 
@@ -31,4 +33,8 @@ class AbstractData(ABC):
         Return a tuple of partitioner class from fedlab, one for authentic,
         and one for synthetic data
         """
+        pass
+
+    @abstractmethod
+    def test(self, model: nn.Module, **kwargs) -> Tuple[float, float]:
         pass
