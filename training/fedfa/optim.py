@@ -1,10 +1,13 @@
 from copy import deepcopy
-import numpy as np
 
 import torch
 from torch.nn import CrossEntropyLoss
-from torch.optim import Adam, SGD
+
+from torch.optim.adam import Adam
+from torch.optim.sgd import SGD
 from torch.utils.data import DataLoader
+
+from opacus import PrivacyEngine
 
 from datasets.syn import IndexedDataset
 
@@ -18,6 +21,8 @@ def optimize(
     num_epoch=5,
     comm_round=0,
 ):
+    model.train()
+
     train_dataloader = DataLoader(
         IndexedDataset(train_data, data_idx),
         batch_size=args.B,
@@ -34,6 +39,19 @@ def optimize(
         optim = SGD(
             model.parameters(), lr=lr, momentum=args.momentum, weight_decay=0.001
         )
+
+    privacy_engine = PrivacyEngine()
+
+    model, optim, train_dataloader = privacy_engine.make_private_with_epsilon(
+        module=model,
+        optimizer=optim,
+        data_loader=train_dataloader,
+        target_epsilon=10,
+        target_delta=1 / len(train_data),
+        epochs=num_epoch,
+        max_grad_norm=1.0,
+    )
+
     # the classifier calibration
     optim_cl = Adam(model.classifier.parameters())
 
@@ -44,7 +62,6 @@ def optimize(
 
     full_labels = torch.arange(0, args.num_classes).to(args.device)
     epoch_loss = []
-    model.train()
 
     for _ in range(num_epoch):
         batch_loss = []
@@ -63,6 +80,7 @@ def optimize(
             optim.zero_grad()
             loss.backward()
             optim.step()
+            optim.zero_grad()
 
             # compute classifier calibration loss
             x_cl = deepcopy(anchorloss.anchor.data.detach()).to(args.device)
@@ -77,13 +95,6 @@ def optimize(
             for i in set(labels.tolist()):
                 batch_mean_anchor[i] += torch.mean(features[labels == i], dim=0)
             batch_loss.append(loss.item())
-
-        # if epoch == 0:
-        #     for i in label_set:
-        #         #compute batch mean anchor according to batch label
-        #         batch_mean_anchor[i] = batch_mean_anchor[i]/(batch_idx+1)
-        #         epoch_mean_anchor[i] = batch_mean_anchor[i]
-        # else:
 
         unique_labels = set(train_data.targets[list(data_idx)])
         for i in unique_labels:

@@ -54,8 +54,8 @@ class Server:
             for client in self.clients.values():
                 # each rounds begin by broadcasting the global models and
                 # anchorloss to the clients
-                model_copy = deepcopy(self.global_model.state_dict())
-                anchorloss_copy = deepcopy(self.global_anchorloss.state_dict())
+                model_copy = deepcopy(self.global_model)
+                anchorloss_copy = deepcopy(self.global_anchorloss)
                 client.dispatch(model_copy, anchorloss_copy)
 
             start_time = time.time()

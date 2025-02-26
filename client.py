@@ -77,6 +77,6 @@ class Client:
             "loss": [],
         }
 
-    def dispatch(self, global_model: dict, anchorloss: dict) -> None:
-        self.model.load_state_dict(global_model)
-        self.anchorloss.load_state_dict(anchorloss)
+    def dispatch(self, global_model: nn.Module, anchorloss: nn.Module) -> None:
+        self.model = global_model
+        self.anchorloss = anchorloss
