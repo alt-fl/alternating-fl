@@ -1,9 +1,8 @@
 from datetime import date
 import os
 from pathlib import Path
-import re
-import sys
 
+from opacus.data_loader import logging
 import psutil
 import time
 import tracemalloc
@@ -16,37 +15,7 @@ from server import Server
 from exp_wrapper import get_wrapper
 from exp_args import ExperimentArgument
 
-
-class Filter(object):
-    def __init__(self, stream, re_pattern):
-        self.stream = stream
-        self.pattern = (
-            re.compile(re_pattern) if isinstance(re_pattern, str) else re_pattern
-        )
-        self.triggered = False
-
-    def __getattr__(self, attr_name):
-        return getattr(self.stream, attr_name)
-
-    def write(self, data):
-        if data == "\n" and self.triggered:
-            self.triggered = False
-        else:
-            if self.pattern.search(data) is None:
-                self.stream.write(data)
-                self.stream.flush()
-            else:
-                # caught bad pattern
-                self.triggered = True
-
-    def flush(self):
-        self.stream.flush()
-
-
-# example
-sys.stdout = Filter(
-    sys.stdout, r"WARNING: The input does not fit in a single ciphertext"
-)  # filter out any line which contains "Read -1" in it
+from logger import logger, configure_logger, MessageContentFilter
 
 
 def seed_torch(seed=1234):
@@ -66,9 +35,9 @@ def log_num_samples_per_class(data, dict_users, num_classes=10):
         counts = [0] * num_classes
         for id in dict_users[k]:
             counts[data[id][1]] += 1
-        print(f"Client {k}: {counts}")
+        logger.debug(f"Client {k} samples per class: {counts}")
         summed[k] = sum(counts)
-    print(f"Total samples: {sum(summed)}, {summed}")
+    logger.debug(f"Total samples/samples per client: {sum(summed)}, {summed}\n")
 
 
 def main():
@@ -76,7 +45,15 @@ def main():
     wrapper = get_wrapper()
     seed_torch(args.seed)
 
-    print(f"setting: {int(args.C * args.K)}/{args.K} active clients")
+    log_level = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+    }.get(args.log_level) or logging.NOTSET
+    configure_logger(level=log_level)
+
+    logger.info(f"Client setting: {int(args.C * args.K)}/{args.K} active clients")
 
     today = str(date.today())
     filename = wrapper.get_output()
@@ -84,10 +61,10 @@ def main():
     output_path = Path(output_dir, filename)
 
     if not output_dir.exists():
-        print(f"creating directory {output_dir}")
+        logger.info(f"Creating output directory {output_dir}")
         output_dir.mkdir(parents=True)
     else:
-        print(f"directory {output_dir} already exists, proceeding...")
+        logger.info(f"Output directory {output_dir} already exists, proceeding...")
 
     # split dataset into training (authentic and synthetic) and testing
     auth_data, syn_data, test_data = wrapper.get_data_split()
@@ -96,15 +73,15 @@ def main():
     auth_dict_users, syn_dict_users = wrapper.partition_data()
     # create model
     model = wrapper.get_model()
-    print("model:", args.model)
+    logger.info(f"Model: {args.model}")
 
     total_params = sum(p.numel() for p in model.parameters())
-    print("parameters:", total_params)
+    logger.info(f"Total model parameters: {total_params}\n")
 
-    print("==========authentic data==========")
+    logger.debug("==========authentic data==========")
     log_num_samples_per_class(auth_data, auth_dict_users, num_classes=args.num_classes)
 
-    print("==========synthetic data==========")
+    logger.debug("==========synthetic data==========")
     log_num_samples_per_class(syn_data, syn_dict_users, num_classes=args.num_classes)
 
     server = Server(
@@ -116,7 +93,7 @@ def main():
         syn_dict_users,
         output_path,
     )
-    print("global_model:", server.global_model.state_dict)
+    logger.debug(f"\nModel architecture: {server.global_model.state_dict}\n")
 
     # begin model training
     server.start_training()
@@ -128,4 +105,4 @@ if __name__ == "__main__":
     psutil.cpu_percent()
     main()
     end_time = time.time()
-    print("total execution Time: ", end_time - start_time)
+    logger.info(f"Total execution time: {end_time - start_time:.2f}s")

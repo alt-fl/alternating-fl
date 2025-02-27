@@ -8,7 +8,8 @@ from torch.utils.data import Dataset
 class InterleavingRounds(Iterator):
     """
     Simple iterator that, given an interleaving ratio, returns the current
-    round number and if it is an authentic round. Where the interleaving ratiois    is a tuple of (rho_syn, rho_tot).
+    round number and if it is an authentic round. Where the interleaving ratio
+    is the tuple (rho_syn, rho_tot), as specified in the arguments.
 
     syn_only: defines the first n rounds that will exclusively synthetic,
               regardless of the interleaivng ratio

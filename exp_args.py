@@ -143,12 +143,6 @@ def _parse_args():
     )
     parser.add_argument("--num_classes", type=int, default=10, help="number of classes")
     parser.add_argument(
-        "--num_perclass",
-        type=int,
-        default=10,
-        help="number of per class in one client dataset",
-    )
-    parser.add_argument(
         "--skew", type=str, default="label", help="distribution skew setting"
     )
 
@@ -160,6 +154,13 @@ def _parse_args():
     parser.add_argument("--verbose", action="store_true", help="verbose print")
     parser.add_argument(
         "--seed", type=int, default=1234, help="random seed (default: 1234)"
+    )
+    parser.add_argument(
+        "--log_level",
+        type=str,
+        default="DEBUG",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        help="which logging level to use",
     )
 
     args = parser.parse_args()

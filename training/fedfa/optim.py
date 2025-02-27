@@ -42,15 +42,15 @@ def optimize(
 
     privacy_engine = PrivacyEngine()
 
-    model, optim, train_dataloader = privacy_engine.make_private_with_epsilon(
-        module=model,
-        optimizer=optim,
-        data_loader=train_dataloader,
-        target_epsilon=10,
-        target_delta=1 / len(train_data),
-        epochs=num_epoch,
-        max_grad_norm=1.0,
-    )
+    # model, optim, train_dataloader = privacy_engine.make_private_with_epsilon(
+    #     module=model,
+    #     optimizer=optim,
+    #     data_loader=train_dataloader,
+    #     target_epsilon=5,
+    #     target_delta=1 / len(data_idx),
+    #     epochs=num_epoch,
+    #     max_grad_norm=1.0,
+    # )
 
     # the classifier calibration
     optim_cl = Adam(model.classifier.parameters())

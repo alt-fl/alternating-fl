@@ -7,9 +7,12 @@ from torch.utils.data import Dataset
 
 from client import Client
 from datasets.abs_data import AbstractData
+from datasets.syn import InterleavingRounds
 from exp_args import ExperimentArgument
 from training.fedfa.aggregate import fedavg_aggregate
 from utils.AnchorLoss import AnchorLoss
+
+from logger import logger
 
 
 class Server:
@@ -48,8 +51,13 @@ class Server:
 
     def start_training(self):
         # begin the communication rounds
-        for round_num in range(self.args.r):
-            print(f"\n=== Round {round_num + 1} ===")
+        for round_num, is_auth in InterleavingRounds(
+            self.args.r,
+            ratio=(self.args.rho_syn, self.args.rho_tot),
+            syn_only=self.args.init_syn_rounds,
+        ):
+            auth_str = "Authentic" if is_auth else "Synthetic"
+            logger.info(f"=== {auth_str} Round {round_num + 1} ===")
 
             for client in self.clients.values():
                 # each rounds begin by broadcasting the global models and
@@ -83,8 +91,9 @@ class Server:
             self.global_anchorloss.load_state_dict(agg_anchor)
 
             acc, loss = self.data.test(self.global_model)
-            print(f"round {round_num + 1}, acc: {acc}, loss: {loss}")
-
-            print(
-                f"all clients done round {round_num + 1} in {end_time - start_time:.2f}s"
+            logger.info(
+                f"Round {round_num + 1} completed in {end_time - start_time:.2f}s"
+            )
+            logger.info(
+                f"Round {round_num + 1}: accuracy = {acc * 100:.2f}%, loss = {loss:.3f}\n"
             )

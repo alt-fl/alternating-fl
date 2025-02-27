@@ -13,6 +13,8 @@ from training.epochs import EpochTransition, NoTransition
 from training.fedfa.optim import optimize
 from utils.AnchorLoss import AnchorLoss
 
+from logger import logger
+
 
 class Client:
     def __init__(
@@ -52,28 +54,31 @@ class Client:
         # dynamic local epoch
         self.epoch_func = epoch_func
 
-    def train(self) -> dict[str, Any]:
+    def train(self, is_auth_round: bool = True) -> dict[str, Any]:
+        # train for a certain number of epochs for a communication round,
+        # by default the communication round is always authentic
+
         num_epoch = self.epoch_func.estimate_epoch(self.round)
         start_time = time.time()
-        print(f"client {self.id} training start")
-        print()
+
+        logger.debug(f"Client {self.id} training start")
         loss = optimize(
             self.args,
             self.anchorloss,
             self.model,
-            self.dataset,
-            self.data_indices,
+            self.dataset if is_auth_round else self.syn_dataset,
+            self.data_indices if is_auth_round else self.syn_data_indices,
             num_epoch=num_epoch,
             comm_round=self.round,
         )
         end_time = time.time()
-        print(f"client {self.id} training time: {end_time - start_time:.2f}")
+        training_time = end_time - start_time
+        logger.info(f"Client {self.id} training time: {training_time:.2f}")
 
         return {
             "id": self.id,
             "model": deepcopy(self.model.state_dict()),
             "anchorloss": deepcopy(self.anchorloss.state_dict()),
-            "accuracy": [],
             "loss": [],
         }
 
