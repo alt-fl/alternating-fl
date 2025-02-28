@@ -1,22 +1,20 @@
-from copy import deepcopy
-
-
 def he_aggregate(client_idxs, enc_params_dict, client_data_idxs):
     # compute the total number of data samples across all clients
     num_samples = sum(map(lambda k: len(client_data_idxs[k]), client_idxs))
     enc_params = {}
+
     # for each layer, and the parameters in that layer for all client
-    for name, client_params in enc_params_dict.items():
-        # for each client's parameters in the layer
-        for k, enc_param in client_params.items():
+    for k, client_params in enc_params_dict.items():
+        for name, enc_param in client_params.items():
+            # for each client's parameters in the layer
             weight = len(client_data_idxs[k]) / num_samples
             if name not in enc_params:
-                # handle special when some layers are not encrypted
+                # for the first client, just set weighted parameters
                 enc_params[name] = enc_param.mul(weight)
-                continue
-            enc_params[name] = enc_params[name].add(enc_param.mul(weight))
-        # serialize ciphertexts
-        enc_params[name] = enc_params[name].serialize()
+            else:
+                enc_params[name] = enc_params[name].add(enc_param.mul(weight))
+        # serialize ciphertexts or not, depending on model assumption...
+        # enc_params[name] = enc_params[name].serialize()
     return enc_params
 
 

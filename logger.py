@@ -1,4 +1,5 @@
 import logging
+import sys
 
 logging.captureWarnings(True)
 # create a logger with a specific name, and it's console handler
@@ -29,7 +30,7 @@ warnings_logger.addHandler(console_handler)
 warnings_logger.setLevel(logging.WARNING)
 
 
-def configure_logger(level=logging.DEBUG, filters=None):
+def configure_logger(level=logging.DEBUG, filters=None, override_stdout=True):
     """
     Set the logger's level and filters.
 
@@ -38,6 +39,8 @@ def configure_logger(level=logging.DEBUG, filters=None):
         filters (list): A list of logging.Filter instances to add to the logger's handlers.
     """
     logger.setLevel(level)
+    if override_stdout:
+        sys.stdout = LoggerWriter(logger, level)
 
     for handler in logger.handlers:
         handler.setLevel(level)
@@ -48,25 +51,45 @@ def configure_logger(level=logging.DEBUG, filters=None):
                 handler.addFilter(filt)
 
 
+class LoggerWriter:
+    """
+    A file-like object that redirects writes to a logger.
+
+    Not a very elegant solution for filtering messages, but it will have to do
+    with print statemtns to stdout...
+    """
+
+    def __init__(self, logger, level=logging.DEBUG):
+        self.logger = logger
+        self.level = level
+        self._buffer = ""
+
+    def write(self, message):
+        # buffer the message to handle partial writes
+        self._buffer += message
+        # if the buffer contains one or more newline, log each line
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            if line.strip():  # avoid logging empty lines
+                self.logger.log(self.level, line.rstrip())
+
+    def flush(self):
+        # flush any remaining message in the buffer
+        if self._buffer.strip():
+            self.logger.log(self.level, self._buffer.rstrip())
+        self._buffer = ""
+
+
 class MessageContentFilter(logging.Filter):
     def __init__(self, banned_content):
-        """
-        Initialize the filter.
-
-        Parameters:
-            banned_content (str or list): A substring or list of substrings to filter out.
-        """
         super().__init__()
+        # support a single string or a list of banned substrings.
         if isinstance(banned_content, str):
             self.banned_contents = [banned_content]
         else:
             self.banned_contents = banned_content
 
     def filter(self, record):
-        # record.getMessage() returns the formatted log message.
-        msg = record.getMessage()
-        # Return False (filter out) if any banned substring is in the message.
-        for banned in self.banned_contents:
-            if banned in msg:
-                return False
-        return True
+        message = record.getMessage()
+        # return False if any banned substring is found.
+        return not any(banned in message for banned in self.banned_contents)

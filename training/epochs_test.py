@@ -3,7 +3,7 @@ from epochs import *
 if __name__ == "__main__":
     # code for testing the different transition functions
     n = 5
-    budget = 10
+    budget = 20
 
     def disp(trans, n=n):
         return [trans.estimate_epoch(round) for round in range(0, n)]
@@ -40,8 +40,9 @@ if __name__ == "__main__":
 
     # special transition function
     c = 0.1
-    ease_in_est_max = EaseInTransition.estimate_max_epoch(budget, 1, n, c)
+    epoch_min = 2
+    ease_in_est_max = EaseInTransition.estimate_max_epoch(budget, epoch_min, n, c)
     print("Ease-in estimated max epoch", ease_in_est_max)
-    ease_in = EaseInTransition(ease_in_est_max, epoch_min=1, n=n, c=c)
+    ease_in = EaseInTransition(ease_in_est_max, epoch_min=epoch_min, n=n, c=c)
     print("Ease-in budget spent", get_total_epochs(ease_in, n=n))
     print("Ease-in", disp(ease_in))

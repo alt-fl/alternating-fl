@@ -1,8 +1,8 @@
 import torch
 from torch.utils.data import DataLoader
 
-
-import utils.optimizer as op
+from datasets.syn import IndexedDataset
+from logger import logger
 
 
 def get_enc_mask(args, model, dst, dst_idx, ratio=0.1):
@@ -25,12 +25,13 @@ def get_most_sensitivive(sens_map, model, ratio=0.1):
 
     last_idx = 0
     enc_map = {}
+    res_strs = []
     for name, param in model.named_parameters():
         total_num = param.numel()
         indices = top_indices[
             (top_indices >= last_idx) & (top_indices < last_idx + total_num)
         ]
-        print(f"\t{name}: {len(indices)}/{total_num}")
+        res_strs.append(f"\t{name}: {len(indices)}/{total_num}")
 
         if len(indices) == 0:
             last_idx += total_num
@@ -38,6 +39,7 @@ def get_most_sensitivive(sens_map, model, ratio=0.1):
 
         enc_map[name] = indices - last_idx
         last_idx += total_num
+    logger.debug(f"Mask sensitivy: \n{"\n".join(res_strs)}")
 
     return enc_map
 
@@ -46,7 +48,7 @@ def get_sensitivity_maps(args, model, dst, dst_idx):
     sens_maps = []
     for k in range(args.K):
         loader = DataLoader(
-            op.DatasetSplit(dst, dst_idx[k]), batch_size=args.B, shuffle=True
+            IndexedDataset(dst, dst_idx[k]), batch_size=args.B, shuffle=True
         )
 
         gradients = [None for _ in model.named_parameters()]

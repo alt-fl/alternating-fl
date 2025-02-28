@@ -1,11 +1,12 @@
+import logging
 from datetime import date
 import os
 from pathlib import Path
 
-from opacus.data_loader import logging
 import psutil
 import time
 import tracemalloc
+from pympler import asizeof
 
 import torch
 import random
@@ -14,8 +15,10 @@ import numpy as np
 from server import Server
 from exp_wrapper import get_wrapper
 from exp_args import ExperimentArgument
+from he import get_he_context
 
 from logger import logger, configure_logger, MessageContentFilter
+from training.epochs import get_transition
 
 
 def seed_torch(seed=1234):
@@ -51,7 +54,15 @@ def main():
         "WARNING": logging.WARNING,
         "ERROR": logging.ERROR,
     }.get(args.log_level) or logging.NOTSET
-    configure_logger(level=log_level)
+    banned_phrases = [
+        # this ignores tenseal warning which says some unused operations are not available
+        "WARNING: The input does not fit in a single ciphertext, and some operations will be disabled.",
+        "The following operations are disabled in this setup: matmul, matmul_plain, enc_matmul_plain, conv2d_im2col.",
+        "If you need to use those operations, try increasing the poly_modulus parameter, to fit your input.",
+        # we are not using the results in production, so secure RNG doesn't matter
+        "UserWarning: Secure RNG turned off.",
+    ]
+    configure_logger(level=log_level, filters=[MessageContentFilter(banned_phrases)])
 
     logger.info(f"Client setting: {int(args.C * args.K)}/{args.K} active clients")
 
@@ -84,6 +95,26 @@ def main():
     logger.debug("==========synthetic data==========")
     log_num_samples_per_class(syn_data, syn_dict_users, num_classes=args.num_classes)
 
+    rho = args.rho_syn / args.rho_tot
+    logger.info(f"Alt-FL with rho={rho:.5g} ({args.rho_syn}/{args.rho_tot})")
+
+    client_context = None
+    server_context = None
+    if args.epsilon > 0:
+        he_context = get_he_context()
+        client_context = he_context.serialize(save_secret_key=True)
+        # server should have a context, but without the secret
+        # although it doesn't use this currently -.-
+        server_context = he_context.serialize(save_secret_key=False)
+        context_size = asizeof.asizeof(client_context)
+        logger.info(f"HE enabled with epsilon={args.epsilon:.5g}")
+        logger.info(f"HE context has size={context_size / 1e6:.2f}MB")
+
+    epoch_transition = get_transition(args)
+    logger.info(f"Current epoch transition strategy: {epoch_transition}")
+
+    # initiate the server will all parameters, note that some parameters are not
+    # used by the server in practice, but we pass them to server for convenience
     server = Server(
         model,
         wrapper.get_data(),
@@ -92,6 +123,9 @@ def main():
         syn_data,
         syn_dict_users,
         output_path,
+        client_context=client_context,
+        server_context=server_context,
+        epoch_transition=epoch_transition,
     )
     logger.debug(f"\nModel architecture: {server.global_model.state_dict}\n")
 
