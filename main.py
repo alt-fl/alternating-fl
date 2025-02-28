@@ -134,9 +134,12 @@ def main():
 
 
 if __name__ == "__main__":
-    start_time = time.time()
+    tot_time = time.time()
     tracemalloc.start()
     psutil.cpu_percent()
     main()
-    end_time = time.time()
-    logger.info(f"Total execution time: {end_time - start_time:.2f}s")
+    tot_time = time.time() - tot_time
+
+    minutes, seconds = divmod(tot_time, 60)
+    hours, minutes = divmod(minutes, 60)
+    logger.info(f"Total execution time: {'%d:%d:%d' % (hours, minutes, seconds)}")

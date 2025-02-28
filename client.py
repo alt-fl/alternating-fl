@@ -4,6 +4,7 @@ from argparse import Namespace
 from copy import deepcopy
 from typing import Any, Iterable, Optional
 
+import psutil
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
@@ -81,26 +82,29 @@ class Client:
         Differential privacy is controlled by the optimize function.
         """
         num_epoch = self.epoch_func.estimate_epoch(round_num)
-        training_times = {}
+        training_res = {}
+        training_res["num_epoch"] = num_epoch
+
+        # kickstart CPU utilization tracing
+        psutil.cpu_percent()
 
         # HE decryption
-        training_times["decryption"] = 0
+        training_res["decryption"] = 0
         if enc_params and self.args.epsilon > 0:
             dec_time = time.time()
             self.decrypt_and_update(enc_params)
             dec_time = time.time() - dec_time
 
-            training_times["decryption"] = dec_time
+            training_res["decryption"] = dec_time
             logger.debug(f"Client {self.id} decryption time {dec_time:.2f}s")
 
-        start_time = time.time()
         logger.debug(f"Client {self.id} training start")
-
         if self.args.epoch_transition and round_num < self.args.transition_rounds:
             # print out the estimated number epoch as long as it's still during
             # the transition rounds
             logger.debug(f"Client {self.id} local training epochs = {num_epoch}")
 
+        training_time = time.time()
         loss = optimize(
             self.args,
             self.anchorloss,
@@ -110,11 +114,13 @@ class Client:
             num_epoch=num_epoch,
             comm_round=round_num,
         )
-        end_time = time.time()
-        training_time = end_time - start_time
+        training_time = time.time() - training_time
         training_loss = sum(loss) / len(loss)
-        logger.info(f"Client {self.id} training loss: {training_loss:.2f}")
+        training_res["training"] = training_time
+        logger.debug(f"Client {self.id} training loss: {training_loss:.2f}")
         logger.info(f"Client {self.id} training time: {training_time:.2f}s")
+
+        training_res["cpu_util"] = psutil.cpu_percent()
 
         # NOTE that the model is actually not encrypted here
         res = {
@@ -131,8 +137,10 @@ class Client:
             # evaluation purposes
             res["enc_model"] = deepcopy(self.model.state_dict())
             enc_time = time.time() - enc_time
+            training_res["encryption"] = enc_time
             logger.info(f"Client {self.id} encryption time: {enc_time:.2f}s")
 
+        res["training_res"] = training_res
         return res
 
     def decrypt_and_update(self, enc_params: dict[str, ts.CKKSVector]) -> None:
