@@ -9,7 +9,8 @@ from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, Normalize, ToTensor
 
 from fedlab.utils.dataset.partition import CIFAR10Partitioner
-from utils.sampling import trainset_sampling_label
+
+from training.fedfa.sampling import trainset_sampling_label
 
 from .abs_data import AbstractData
 from .syn import balance_auth_dst, partition_data

@@ -15,7 +15,7 @@ from exp_args import ExperimentArgument
 from he.enc_mask import get_enc_mask
 from training.epochs import EpochTransition, NoTransition
 from training.fedfa.aggregate import fedavg_aggregate, he_aggregate
-from utils.AnchorLoss import AnchorLoss
+from training.fedfa.AnchorLoss import AnchorLoss
 
 from logger import logger
 

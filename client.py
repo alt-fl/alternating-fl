@@ -12,7 +12,7 @@ import tenseal as ts
 
 from training.epochs import EpochTransition, NoTransition
 from training.fedfa.optim import optimize
-from utils.AnchorLoss import AnchorLoss
+from training.fedfa.AnchorLoss import AnchorLoss
 
 from logger import logger
 
@@ -95,7 +95,12 @@ class Client:
 
         start_time = time.time()
         logger.debug(f"Client {self.id} training start")
-        logger.debug(f"Client {self.id} local training epochs = {num_epoch}")
+
+        if self.args.epoch_transition and round_num < self.args.transition_rounds:
+            # print out the estimated number epoch as long as it's still during
+            # the transition rounds
+            logger.debug(f"Client {self.id} local training epochs = {num_epoch}")
+
         loss = optimize(
             self.args,
             self.anchorloss,
