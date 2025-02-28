@@ -35,7 +35,8 @@ class Tracker:
         The basic types must be disjoint from the limited types, otherwise
         weird things may happen.
 
-        There is no way to remove entry in the tracker.
+        There is no way to remove entry in the tracker. Well, at least not by
+        using legal methods...
 
         Parameters:
             basic: a list of keys/types of the basic resources to be tracked

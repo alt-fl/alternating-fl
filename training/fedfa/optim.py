@@ -40,17 +40,21 @@ def optimize(
             model.parameters(), lr=lr, momentum=args.momentum, weight_decay=0.001
         )
 
-    privacy_engine = PrivacyEngine()
-
-    # model, optim, train_dataloader = privacy_engine.make_private_with_epsilon(
-    #     module=model,
-    #     optimizer=optim,
-    #     data_loader=train_dataloader,
-    #     target_epsilon=5,
-    #     target_delta=1 / len(data_idx),
-    #     epochs=num_epoch,
-    #     max_grad_norm=1.0,
-    # )
+    if args.use_dp:
+        # use DP protected models, note that we do not have persistent privacy
+        # accounting with this, but it should be acceptabel due to our assumptions,
+        # e.g., cross-silo FL setting and sample-level privacy
+        privacy_engine = PrivacyEngine()
+        model, optim, train_dataloader = privacy_engine.make_private_with_epsilon(
+            module=model,
+            optimizer=optim,
+            data_loader=train_dataloader,
+            target_epsilon=args.dp_epsilon,
+            # for delta we just set a reasonable default
+            target_delta=max(1 / len(data_idx), 1e-5),
+            epochs=num_epoch,
+            max_grad_norm=args.max_grad_norm,
+        )
 
     # the classifier calibration
     optim_cl = Adam(model.classifier.parameters())
@@ -67,7 +71,7 @@ def optimize(
         batch_loss = []
         batch_mean_anchor = torch.zeros_like(anchorloss.anchor.data)
 
-        for batch_idx, (imgs, labels) in enumerate(train_dataloader):
+        for imgs, labels in train_dataloader:
             # predict
             labels = labels.type(torch.LongTensor).to(args.device)
             features, y_preds = model(imgs.to(args.device))

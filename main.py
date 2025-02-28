@@ -61,6 +61,8 @@ def main():
         "If you need to use those operations, try increasing the poly_modulus parameter, to fit your input.",
         # we are not using the results in production, so secure RNG doesn't matter
         "UserWarning: Secure RNG turned off.",
+        # this is something Opacus needs to fix
+        "FutureWarning: Using a non-full backward hook when the forward contains multiple autograd Nodes is deprecated and will be removed in future versions.",
     ]
     configure_logger(level=log_level, filters=[MessageContentFilter(banned_phrases)])
 

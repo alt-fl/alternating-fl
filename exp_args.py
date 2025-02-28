@@ -104,6 +104,22 @@ def _parse_args():
         help="transition parameter for certain transition function",
     )
 
+    # differential privacy
+    parser.add_argument(
+        "--use_dp", action=BooleanOptionalAction, help="enable sample-level DP"
+    )
+    parser.add_argument(
+        "--dp_epsilon",
+        type=float,
+        help="target epsilon for the privacy parameters",
+    )
+    parser.add_argument(
+        "--max_grad_norm",
+        type=float,
+        default=1.0,
+        help="Maximum gradient norm for DP clipping",
+    )
+
     # optimizer arguments
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate")
     parser.add_argument(
