@@ -20,6 +20,7 @@ def optimize(
     data_idx,
     num_epoch=5,
     comm_round=0,
+    use_dp=False,
 ):
     model.train()
 
@@ -40,7 +41,7 @@ def optimize(
             model.parameters(), lr=lr, momentum=args.momentum, weight_decay=0.001
         )
 
-    if args.use_dp:
+    if use_dp:
         # use DP protected models, note that we do not have persistent privacy
         # accounting with this, but it should be acceptabel due to our assumptions,
         # e.g., cross-silo FL setting and sample-level privacy

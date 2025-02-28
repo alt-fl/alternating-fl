@@ -113,6 +113,8 @@ class Client:
             self.data_indices if is_auth_round else self.syn_data_indices,
             num_epoch=num_epoch,
             comm_round=round_num,
+            # synthetic rounds don't need DP, just like HE
+            use_dp=self.args.use_dp and is_auth_round,
         )
         training_time = time.time() - training_time
         training_loss = sum(loss) / len(loss)
