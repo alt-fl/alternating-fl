@@ -40,6 +40,8 @@ class Server:
         epoch_transition: EpochTransition = NoTransition(),
     ):
         self.args = ExperimentArgument()
+        self.output_path = output_path
+
         self.tracker = Tracker(
             basic=[
                 "is_round_authentic",
@@ -57,10 +59,10 @@ class Server:
                 "model",
                 "anchorloss",
             ],
-            limited=[("encryption_mask", 1)],
+            limited=[("encryption_mask", 1), ("arguments", 1)],
             output_path=output_path,
         )
-        self.output_path = output_path
+        self.tracker.track("arguments", deepcopy(self.args))
 
         self.clients: dict[int, Client] = {}
         self.global_model = model
