@@ -55,6 +55,7 @@ def optimize(
             target_delta=max(1 / len(data_idx), 1e-5),
             epochs=num_epoch,
             max_grad_norm=args.max_grad_norm,
+            batch_first=True,
         )
 
     # the classifier calibration

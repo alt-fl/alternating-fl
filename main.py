@@ -112,6 +112,12 @@ def main():
         logger.info(f"HE enabled with epsilon={args.epsilon:.5g}")
         logger.info(f"HE context has size={context_size / 1e6:.2f}MB")
 
+    if args.use_dp:
+        logger.info(
+            f"Differential Privacy enabled with target epsilon={args.dp_epsilon:.5g}"
+            + f" and max gradient norm={args.max_grad_norm:.5g}"
+        )
+
     epoch_transition = get_transition(args)
     logger.info(f"Current epoch transition strategy: {epoch_transition}")
 

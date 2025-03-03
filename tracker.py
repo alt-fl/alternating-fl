@@ -61,7 +61,7 @@ class Tracker:
         Use torch.save() to save the resources recorded so far
         """
         records = {}
-        for t, rec in records:
+        for t, rec in self.records.items():
             if isinstance(rec, _Limited):
                 records[t] = list(rec.retrieve())
                 continue
