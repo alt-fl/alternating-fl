@@ -222,8 +222,10 @@ class Server:
 
             if (round_num + 1) % self.args.save_every == 0:
 
-                self.tracker.track("model", deepcopy(self.global_model))
-                self.tracker.track("anchorloss", deepcopy(self.global_anchorloss))
+                self.tracker.track("model", deepcopy(self.global_model.state_dict()))
+                self.tracker.track(
+                    "anchorloss", deepcopy(self.global_anchorloss.state_dict())
+                )
                 self.tracker.save()
                 logger.info(
                     f"Checkpoint saved at {str(self.output_path)}, size {self.output_path.stat().st_size / 1e6 :.2f}MB\n"
