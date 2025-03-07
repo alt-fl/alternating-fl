@@ -132,6 +132,7 @@ class Client:
             "loss": training_loss,
         }
         # encryption
+        training_res["encryption"] = 0
         if self.args.epsilon > 0 and is_auth_round:
             enc_time = time.time()
             res["enc_params"] = self.encrypt_and_update()
