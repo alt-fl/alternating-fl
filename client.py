@@ -12,7 +12,8 @@ from torch.utils.data import Dataset
 import tenseal as ts
 
 from training.epochs import EpochTransition, NoTransition
-from training.fedfa.optim import optimize
+from training.fedavg.optim import optimize as fedavg_optim
+from training.fedfa.optim import optimize as fedfa_optim
 from training.fedfa.AnchorLoss import AnchorLoss
 
 from logger import logger
@@ -24,9 +25,9 @@ class Client:
         id: int,
         args: Namespace,
         model: nn.Module,
-        anchorloss: AnchorLoss,
         dataset: Dataset,
         data_indices: Iterable[int],
+        anchorloss: Optional[AnchorLoss] = None,
         syn_dataset: Optional[Dataset] = None,
         syn_data_indices: Optional[Iterable[int]] = None,
         he_context: Optional[bytes] = None,
@@ -105,17 +106,30 @@ class Client:
             logger.debug(f"Client {self.id} local training epochs = {num_epoch}")
 
         training_time = time.time()
-        loss = optimize(
-            self.args,
-            self.anchorloss,
-            self.model,
-            self.dataset if is_auth_round else self.syn_dataset,
-            self.data_indices if is_auth_round else self.syn_data_indices,
-            num_epoch=num_epoch,
-            comm_round=round_num,
-            # synthetic rounds don't need DP, just like HE
-            use_dp=self.args.use_dp and is_auth_round,
-        )
+        # ugly code, but sure works well
+        if self.args.strategy.lower() == "fedfa":
+            loss = fedfa_optim(
+                self.args,
+                self.anchorloss,
+                self.model,
+                self.dataset if is_auth_round else self.syn_dataset,
+                self.data_indices if is_auth_round else self.syn_data_indices,
+                num_epoch=num_epoch,
+                comm_round=round_num,
+                # synthetic rounds don't need DP, just like HE
+                use_dp=self.args.use_dp and is_auth_round,
+            )
+        else:
+            loss = fedavg_optim(
+                self.args,
+                self.model,
+                self.dataset if is_auth_round else self.syn_dataset,
+                self.data_indices if is_auth_round else self.syn_data_indices,
+                num_epoch=num_epoch,
+                comm_round=round_num,
+                # synthetic rounds don't need DP, just like HE
+                use_dp=self.args.use_dp and is_auth_round,
+            )
         training_time = time.time() - training_time
         training_loss = sum(loss) / len(loss)
         training_res["training"] = training_time
@@ -128,7 +142,9 @@ class Client:
         res = {
             "id": self.id,
             "model": deepcopy(self.model.state_dict()),
-            "anchorloss": deepcopy(self.anchorloss.state_dict()),
+            "anchorloss": (
+                deepcopy(self.anchorloss.state_dict()) if self.anchorloss else None
+            ),
             "loss": training_loss,
         }
         # encryption
@@ -167,7 +183,8 @@ class Client:
 
     def encrypt_and_update(self) -> dict[str, ts.CKKSVector]:
         """
-        Encrypts the parameters in current according to the mask, and updatesthe model by hiding encrypted parameters
+        Encrypts the parameters in current according to the mask, and updates
+        the model by hiding encrypted parameters
         """
         # mostly just to shut the linter up
         assert self.mask is not None and self.context is not None
@@ -190,6 +207,8 @@ class Client:
                 )
         return enc_params
 
-    def dispatch(self, global_model: nn.Module, anchorloss: nn.Module) -> None:
+    def dispatch(
+        self, global_model: nn.Module, anchorloss: Optional[nn.Module] = None
+    ) -> None:
         self.model = global_model
         self.anchorloss = anchorloss

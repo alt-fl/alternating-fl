@@ -35,6 +35,7 @@ def _parse_args():
     parser.add_argument("--C", type=float, default=0.1, help="client samspling rate")
 
     # experiment settings
+    parser.add_argument("--strategy", type=str, help="use FedFA or FedAvg")
     parser.add_argument("--output", type=str, help="name of the file to output results")
     parser.add_argument(
         "--save_every", type=int, default=20, help="save the checkpoint every n rounds"

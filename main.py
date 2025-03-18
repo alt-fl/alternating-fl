@@ -79,6 +79,7 @@ def main():
     else:
         logger.info(f"Output directory {output_dir} already exists, proceeding...")
 
+    logger.info(f"FL strategy: {args.strategy}")
     # split dataset into training (authentic and synthetic) and testing
     auth_data, syn_data, test_data = wrapper.get_data_split()
     # perform partition, and get the dictionary specifying the partition of

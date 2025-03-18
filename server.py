@@ -66,9 +66,11 @@ class Server:
 
         self.clients: dict[int, Client] = {}
         self.global_model = model
-        self.global_anchorloss = AnchorLoss(
-            self.args.num_classes, self.args.dims_feature
-        )
+        self.global_anchorloss = None
+        if self.args.strategy.lower() == "fedfa":
+            self.global_anchorloss = AnchorLoss(
+                self.args.num_classes, self.args.dims_feature
+            )
 
         # if homomorphic encryption is enabled, then we need to calculate
         # the mask and dissenminate it to the clients
@@ -96,9 +98,9 @@ class Server:
                 id,
                 self.args,
                 deepcopy(self.global_model),
-                deepcopy(self.global_anchorloss),
                 dataset,
                 client_data_idxs[id],
+                anchorloss=deepcopy(self.global_anchorloss),
                 syn_dataset=syn_dst,
                 syn_data_indices=syn_client_data_idxs[id],
                 he_context=client_context,
@@ -177,9 +179,10 @@ class Server:
             agg_model = fedavg_aggregate(client_idxs, real_client_models, data_idxs)
             self.global_model.load_state_dict(agg_model)
 
-            # aggregate client anchors
-            agg_anchor = fedavg_aggregate(client_idxs, client_anchors, data_idxs)
-            self.global_anchorloss.load_state_dict(agg_anchor)
+            if self.args.strategy.lower() == "fedfa":
+                # aggregate client anchors if we are using FedFA
+                agg_anchor = fedavg_aggregate(client_idxs, client_anchors, data_idxs)
+                self.global_anchorloss.load_state_dict(agg_anchor)  # type: ignore
 
             agg_time = time.time() - agg_time
             model_size = asizeof(self.global_model)
@@ -224,7 +227,12 @@ class Server:
 
                 self.tracker.track("model", deepcopy(self.global_model.state_dict()))
                 self.tracker.track(
-                    "anchorloss", deepcopy(self.global_anchorloss.state_dict())
+                    "anchorloss",
+                    (
+                        deepcopy(self.global_anchorloss.state_dict())
+                        if self.global_anchorloss
+                        else None
+                    ),
                 )
                 self.tracker.save()
                 logger.info(
