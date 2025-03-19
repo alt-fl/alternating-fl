@@ -35,10 +35,21 @@ def _parse_args():
     parser.add_argument("--C", type=float, default=0.1, help="client samspling rate")
 
     # experiment settings
-    parser.add_argument("--strategy", type=str, help="use FedFA or FedAvg")
     parser.add_argument("--output", type=str, help="name of the file to output results")
     parser.add_argument(
         "--save_every", type=int, default=20, help="save the checkpoint every n rounds"
+    )
+    parser.add_argument(
+        "--exp_repeat",
+        type=int,
+        default=1,
+        help="how many times to repeat the specified experiment",
+    )
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        choices=("FedAvg", "FedFA"),
+        help="which federated learning framework to use",
     )
     parser.add_argument(
         "--model",
@@ -118,7 +129,27 @@ def _parse_args():
         "--max_grad_norm",
         type=float,
         default=1.0,
-        help="Maximum gradient norm for DP clipping",
+        help="maximum gradient norm for DP clipping",
+    )
+
+    # early stopping arguments
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=10,
+        help="how long to wait before deciding early stop",
+    )
+    parser.add_argument(
+        "--early_stop_delta",
+        type=float,
+        default=0.001,
+        help="threshold that decides when to stop",
+    )
+    parser.add_argument(
+        "--window_size",
+        type=int,
+        default=1,
+        help="sliding window size for moving average for accuracy smoothing",
     )
 
     # optimizer arguments

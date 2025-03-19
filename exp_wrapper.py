@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from torch.nn import Module
 from torch.utils.data import Dataset
@@ -39,8 +39,11 @@ class Wrapper:
     def get_model(self) -> Module:
         return self._model
 
-    def get_output(self) -> str:
-        return self.args.output if self.args.output else self.generate_name()
+    def get_output(self, id: Optional[int] = None) -> str:
+        output = self.args.output if self.args.output else self.generate_name()
+        if id is not None:
+            return f"{output}_{id}.pt"
+        return output + ".pt"
 
     def partition_data(self) -> Any:
         return self._data.partition_data()
@@ -63,7 +66,7 @@ class Wrapper:
                 f"init_syn_{self.args.init_syn_rounds}",
             ]
         )
-        return name + ".pt"
+        return name
 
 
 def get_wrapper() -> Wrapper:

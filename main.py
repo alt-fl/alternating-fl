@@ -66,80 +66,90 @@ def main():
     ]
     configure_logger(level=log_level, filters=[MessageContentFilter(banned_phrases)])
 
-    logger.info(f"Client setting: {int(args.C * args.K)}/{args.K} active clients")
-
+    # check for output directory
     today = str(date.today())
-    filename = wrapper.get_output()
     output_dir = Path(".", today)
-    output_path = Path(output_dir, filename)
-
     if not output_dir.exists():
         logger.info(f"Creating output directory {output_dir}")
         output_dir.mkdir(parents=True)
     else:
         logger.info(f"Output directory {output_dir} already exists, proceeding...")
 
-    logger.info(f"FL strategy: {args.strategy}")
-    # split dataset into training (authentic and synthetic) and testing
-    auth_data, syn_data, test_data = wrapper.get_data_split()
-    # perform partition, and get the dictionary specifying the partition of
-    # data that belongs to each  clients
-    auth_dict_users, syn_dict_users = wrapper.partition_data()
-    # create model
-    model = wrapper.get_model()
-    logger.info(f"Model: {args.model}")
+    for iteration in range(args.exp_repeat):
+        logger.info(f"##########  EXPERIMENT ITERATION {iteration}  #########\n")
+        filename = (
+            wrapper.get_output(id=iteration)
+            if args.exp_repeat > 1
+            else wrapper.get_output()
+        )
+        output_path = Path(output_dir, filename)
 
-    total_params = sum(p.numel() for p in model.parameters())
-    logger.info(f"Total model parameters: {total_params}\n")
+        logger.info(f"Client setting: {int(args.C * args.K)}/{args.K} active clients")
+        logger.info(f"FL strategy: {args.strategy}")
+        # split dataset into training (authentic and synthetic) and testing
+        auth_data, syn_data, test_data = wrapper.get_data_split()
+        # perform partition, and get the dictionary specifying the partition of
+        # data that belongs to each  clients
+        auth_dict_users, syn_dict_users = wrapper.partition_data()
+        # create model
+        model = wrapper.get_model()
+        logger.info(f"Model: {args.model}")
 
-    logger.debug("==========authentic data==========")
-    log_num_samples_per_class(auth_data, auth_dict_users, num_classes=args.num_classes)
+        total_params = sum(p.numel() for p in model.parameters())
+        logger.info(f"Total model parameters: {total_params}\n")
 
-    logger.debug("==========synthetic data==========")
-    log_num_samples_per_class(syn_data, syn_dict_users, num_classes=args.num_classes)
-
-    rho = args.rho_syn / args.rho_tot
-    logger.info(f"Alt-FL with rho={rho:.5g} ({args.rho_syn}/{args.rho_tot})")
-
-    client_context = None
-    server_context = None
-    if args.epsilon > 0:
-        he_context = get_he_context()
-        client_context = he_context.serialize(save_secret_key=True)
-        # server should have a context, but without the secret
-        # although it doesn't use this currently -.-
-        server_context = he_context.serialize(save_secret_key=False)
-        context_size = asizeof.asizeof(client_context)
-        logger.info(f"HE enabled with epsilon={args.epsilon:.5g}")
-        logger.info(f"HE context has size={context_size / 1e6:.2f}MB")
-
-    if args.use_dp:
-        logger.info(
-            f"Differential Privacy enabled with target epsilon={args.dp_epsilon:.5g}"
-            + f" and max gradient norm={args.max_grad_norm:.5g}"
+        logger.debug("==========authentic data==========")
+        log_num_samples_per_class(
+            auth_data, auth_dict_users, num_classes=args.num_classes
         )
 
-    epoch_transition = get_transition(args)
-    logger.info(f"Current epoch transition strategy: {epoch_transition}")
+        logger.debug("==========synthetic data==========")
+        log_num_samples_per_class(
+            syn_data, syn_dict_users, num_classes=args.num_classes
+        )
 
-    # initiate the server will all parameters, note that some parameters are not
-    # used by the server in practice, but we pass them to server for convenience
-    server = Server(
-        model,
-        wrapper.get_data(),
-        auth_data,
-        auth_dict_users,
-        syn_data,
-        syn_dict_users,
-        output_path,
-        client_context=client_context,
-        server_context=server_context,
-        epoch_transition=epoch_transition,
-    )
-    logger.debug(f"\nModel architecture: {server.global_model.state_dict}\n")
+        rho = args.rho_syn / args.rho_tot
+        logger.info(f"Alt-FL with rho={rho:.5g} ({args.rho_syn}/{args.rho_tot})")
 
-    # begin model training
-    server.start_training()
+        client_context = None
+        server_context = None
+        if args.epsilon > 0:
+            he_context = get_he_context()
+            client_context = he_context.serialize(save_secret_key=True)
+            # server should have a context, but without the secret
+            # although it doesn't use this currently -.-
+            server_context = he_context.serialize(save_secret_key=False)
+            context_size = asizeof.asizeof(client_context)
+            logger.info(f"HE enabled with epsilon={args.epsilon:.5g}")
+            logger.info(f"HE context has size={context_size / 1e6:.2f}MB")
+
+        if args.use_dp:
+            logger.info(
+                f"Differential Privacy enabled with target epsilon={args.dp_epsilon:.5g}"
+                + f" and max gradient norm={args.max_grad_norm:.5g}"
+            )
+
+        epoch_transition = get_transition(args)
+        logger.info(f"Current epoch transition strategy: {epoch_transition}")
+
+        # initiate the server will all parameters, note that some parameters are not
+        # used by the server in practice, but we pass them to server for convenience
+        server = Server(
+            model,
+            wrapper.get_data(),
+            auth_data,
+            auth_dict_users,
+            syn_data,
+            syn_dict_users,
+            output_path,
+            client_context=client_context,
+            server_context=server_context,
+            epoch_transition=epoch_transition,
+        )
+        logger.debug(f"\nModel architecture: {server.global_model.state_dict}\n")
+
+        # begin model training
+        server.start_training()
 
 
 if __name__ == "__main__":
@@ -147,8 +157,8 @@ if __name__ == "__main__":
     tracemalloc.start()
     psutil.cpu_percent()
     main()
-    tot_time = time.time() - tot_time
+    tot_time = round(time.time() - tot_time)
 
     minutes, seconds = divmod(tot_time, 60)
     hours, minutes = divmod(minutes, 60)
-    logger.info(f"Total execution time: {'%d:%d:%d' % (hours, minutes, seconds)}")
+    logger.info(f"Total execution time: {hours:02d}:{minutes:02d}:{seconds:02d}")

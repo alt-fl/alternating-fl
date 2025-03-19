@@ -21,6 +21,7 @@ from tracker import Tracker
 from training.epochs import EpochTransition, NoTransition
 from training.fedfa.aggregate import fedavg_aggregate, he_aggregate
 from training.fedfa.AnchorLoss import AnchorLoss
+from utils import should_early_stop, simple_moving_average
 
 from logger import logger
 
@@ -112,14 +113,22 @@ class Server:
         self.client_data_idxs = client_data_idxs
         self.syn_client_data_idxs = syn_client_data_idxs
 
+        # server-side tracking of accuracy
+        self.accs = []
+        self.losses = []
+
     def start_training(self):
         num_activate_clients = max(int(self.args.C * self.args.K), 1)
+        has_saved = False
+        should_stop = False
+        round_num = 0
         # begin the communication rounds
         for round_num, is_auth in InterleavingRounds(
             self.args.r,
             ratio=(self.args.rho_syn, self.args.rho_tot),
             syn_only=self.args.init_syn_rounds,
         ):
+            has_saved = False
             auth_str = "Authentic" if is_auth else "Synthetic"
             logger.info(f"=== {auth_str} Round {round_num + 1} ===")
 
@@ -218,10 +227,23 @@ class Server:
             acc, loss = self.data.test(test_model)
             self.tracker.track("accuracy", acc)
             self.tracker.track("loss", loss)
+
+            self.accs.append(acc)
+            self.losses.append(loss)
+
             logger.info(
                 f"Round {round_num + 1}: accuracy = {acc:.2%}, loss = {loss:.3f}"
             )
             logger.info(f"Round {round_num + 1} completed in {round_time:.2f}s\n")
+
+            # early stop checking
+            smoothed_accs = simple_moving_average(self.accs, self.args.window_size)
+            should_stop = should_early_stop(
+                round_num,
+                smoothed_accs,
+                patience=self.args.patience,
+                delta=self.args.early_stop_delta,
+            )
 
             if (round_num + 1) % self.args.save_every == 0:
 
@@ -238,3 +260,26 @@ class Server:
                 logger.info(
                     f"Checkpoint saved at {str(self.output_path)}, size {self.output_path.stat().st_size / 1e6 :.2f}MB\n"
                 )
+                has_saved = True
+
+            if should_stop:
+                break
+
+        # always save at end of training, if not already saved
+        if not has_saved:
+            self.tracker.track("model", deepcopy(self.global_model.state_dict()))
+            self.tracker.track(
+                "anchorloss",
+                (
+                    deepcopy(self.global_anchorloss.state_dict())
+                    if self.global_anchorloss
+                    else None
+                ),
+            )
+            self.tracker.save()
+        logger.info(
+            f"Checkpoint saved at {str(self.output_path)}, size {self.output_path.stat().st_size / 1e6 :.2f}MB\n"
+        )
+
+        if should_stop:
+            logger.info(f"Early stopping at round {round_num + 1}!")
