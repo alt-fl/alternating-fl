@@ -45,7 +45,6 @@ def log_num_samples_per_class(data, dict_users, num_classes=10):
 
 def main():
     args = ExperimentArgument()
-    wrapper = get_wrapper()
     seed_torch(args.seed)
 
     log_level = {
@@ -76,7 +75,9 @@ def main():
         logger.info(f"Output directory {output_dir} already exists, proceeding...")
 
     for iteration in range(args.exp_repeat):
-        logger.info(f"##########  EXPERIMENT ITERATION {iteration}  #########\n")
+        logger.info(f"##########  EXPERIMENT ITERATION {iteration + 1}  #########\n")
+        # instantiate new wrapper
+        wrapper = get_wrapper()
         filename = (
             wrapper.get_output(id=iteration)
             if args.exp_repeat > 1
