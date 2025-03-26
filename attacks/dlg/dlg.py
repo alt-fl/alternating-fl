@@ -11,27 +11,15 @@ import torch
 from torch.nn import Module, CrossEntropyLoss
 from torch.optim.lbfgs import LBFGS
 from torch.utils.data import Dataset
-from torchvision.transforms import Compose, ToTensor, ToPILImage
 
 from copy import deepcopy
 from typing import Optional
 
+from sewar.full_ref import msssim, vifp, uqi
+
 from attacks.attacker import Attacker
+from attacks.utils import weights_init
 from logger import logger
-
-
-def weights_init(m):
-    try:
-        if hasattr(m, "weight"):
-            m.weight.data.uniform_(-0.5, 0.5)
-    except Exception:
-        logger.warning(f"Failed in weights_init for {m._get_name()}.weight")
-
-    try:
-        if hasattr(m, "bias"):
-            m.bias.data.uniform_(-0.5, 0.5)
-    except Exception:
-        logger.warning(f"Failed in weights_init for {m._get_name()}.bias")
 
 
 class DLGAttacker(Attacker):
@@ -61,8 +49,8 @@ class DLGAttacker(Attacker):
     def reconstruct(
         self, data_idx: int | list[int], lr=1.0, num_iters=300, use_idlg=False, **kwargs
     ) -> dict:
-        tt = ToTensor()
-        tp = ToPILImage()
+        # tt = ToTensor()
+        # tp = ToPILImage()
         model = deepcopy(self.model)
 
         model.apply(weights_init)
@@ -82,12 +70,14 @@ class DLGAttacker(Attacker):
         # starting the reconstruction here
         for i in range(num_dummy):
             idx = data_idx[i]
-            tmp_datum = tt(self.dataset[idx][0]).float().to(self.device)
+            # tmp_datum = tt(self.dataset[idx][0]).float().to(self.device)
+            # the dataset is already transformed
+            tmp_datum = self.dataset[idx][0].float().to(self.device)
             tmp_datum = tmp_datum.view(1, *tmp_datum.size())
 
             tmp_label = torch.Tensor([self.dataset[idx][1]]).long().to(self.device)
             tmp_label = tmp_label.view((1,))
-            if not real_data or not real_label:
+            if (real_data is None) or (real_label is None):
                 # if we are attacking the first image
                 real_data = tmp_datum
                 real_label = tmp_label
@@ -95,14 +85,17 @@ class DLGAttacker(Attacker):
                 real_data = torch.cat((real_data, tmp_datum), dim=0)
                 real_label = torch.cat((real_label, tmp_label), dim=0)
 
-        if not real_data or not real_label:
+        if (real_data is None) or (real_label is None):
             raise ValueError("no image to be reconstructed")
 
-        # compute original gradient
-        out = model(real_data)
-        y = criterion(out, real_label)
-        dy_dx = torch.autograd.grad(y, model.parameters())  # type: ignore
-        original_dy_dx = list((_.detach().clone() for _ in dy_dx))
+        # compute original gradient (this is the original step from DLG/iDLG)
+        # _, out = model(real_data)
+        # y = criterion(out, real_label)
+        # dy_dx = torch.autograd.grad(y, model.parameters())  # type: ignore
+        # original_dy_dx = list((_.detach().clone() for _ in dy_dx))
+
+        # simulate original gradient (we skip it by simulating an actual step)
+        original_dy_dx = self.simulate(model, self.dataset, data_idx, **kwargs)
 
         # generate dummy data and label
         dummy_data = torch.randn(real_data.size()).to(self.device).requires_grad_(True)
@@ -127,12 +120,11 @@ class DLGAttacker(Attacker):
 
         losses = []
         mses = []
-
         for iter in range(num_iters):
 
             def closure():
                 optimizer.zero_grad()
-                pred = model(dummy_data)
+                _, pred = model(dummy_data)
 
                 if use_idlg:
                     dummy_loss = criterion(pred, label_pred)
@@ -149,7 +141,7 @@ class DLGAttacker(Attacker):
                     dummy_loss, model.parameters(), create_graph=True
                 )
 
-                grad_diff = torch.tensor(0)
+                grad_diff = torch.tensor(0.0)
                 for gx, gy in zip(dummy_dy_dx, original_dy_dx):
                     grad_diff += ((gx - gy) ** 2).sum()
                 grad_diff.backward()
@@ -158,17 +150,22 @@ class DLGAttacker(Attacker):
             optimizer.step(closure)
 
             current_loss = closure().item()
-
             losses.append(current_loss)
-            mses.append(torch.mean((dummy_data - real_data) ** 2).item())
+
+            mse = torch.mean((dummy_data - real_data) ** 2)
+            mses.append(mse.item())
+
+            if (iter + 1) % 10 == 0:
+                logger.debug(f"Loss: {current_loss:.2f}, MSE: {mse:.2f}")
 
         if use_idlg:
-            loss_iDLG = losses
-            label_iDLG = label_pred.item()
-            mse_iDLG = mses
+            pred_label = label_pred.item()
         else:
-            loss_DLG = losses
-            label_DLG = torch.argmax(dummy_label, dim=-1).detach().item()
-            mse_DLG = mses
+            pred_label = torch.argmax(dummy_label, dim=-1).detach().item()
 
-        return {}
+        return {
+            "loss": losses,
+            "label_guess": pred_label,
+            "label_real": real_label,
+            "mse": mses,
+        }
