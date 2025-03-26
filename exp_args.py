@@ -48,6 +48,7 @@ def _parse_args():
     parser.add_argument(
         "--strategy",
         type=str,
+        default="FedFA",
         choices=("FedAvg", "FedFA"),
         help="which federated learning framework to use",
     )
@@ -68,7 +69,7 @@ def _parse_args():
     parser.add_argument(
         "--rho_tot",
         type=int,
-        default=0,
+        default=1,
         help="number of total rounds (for interleaving ratio)",
     )
 
@@ -169,7 +170,8 @@ def _parse_args():
     parser.add_argument(
         "--optimizer",
         type=str,
-        default="sgd",
+        default="adam",
+        choices=("sgd", "adam"),
         help="type of optimizer (sgd or adam)",
     )
     parser.add_argument(

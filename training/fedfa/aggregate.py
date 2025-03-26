@@ -21,8 +21,6 @@ def he_aggregate(client_idxs, enc_params_dict, client_data_idxs):
 def fedavg_aggregate(client_idxs, models, client_data_idxs):
     # compute the total number of data samples across all clients
     num_samples = sum(map(lambda k: len(client_data_idxs[k]), client_idxs))
-    # we don't care about the client id
-    models = list(models.values())
     agg_model = {}
 
     for id in client_idxs:
