@@ -23,5 +23,5 @@ class CINIC10Data(CIFAR10Data):
         cinic_test = ImageFolder(str(Path(path, "test/")), transform=transf)
 
         self.auth_data = cinic_train
-        self.syn_data = cinic_val
+        self.syn_data = cinic_val # we use validation set as synthetic for now...
         self.test_data = cinic_test
