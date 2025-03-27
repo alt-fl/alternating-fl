@@ -166,6 +166,7 @@ class Server:
                     client_enc_params[id] = res["enc_params"]
                     client_enc_models[id] = res["enc_model"]
             round_time = time.time() - round_time
+            logger.info(f"Round {round_num + 1} completed in {round_time:.2f}s\n")
 
             _, peak_mem_usage = tracemalloc.get_traced_memory()
             self.tracker.track("round_time", round_time)
@@ -215,6 +216,7 @@ class Server:
             self.tracker.track("ciphertext_size", ciphertext_size)
             self.tracker.track("he_aggregate_time", he_agg_time)
 
+            test_time = time.time()
             test_model = deepcopy(self.global_model)
             if client_enc_models:
                 # we always test on the unencrypted model since encrypted model
@@ -224,7 +226,8 @@ class Server:
                 )
                 test_model.load_state_dict(unenc_agg_model)
 
-            acc, loss = self.data.test(test_model)
+            acc, loss = self.data.test(test_model, batch_size=self.args.TB)
+            test_time = time.time() - test_time
             self.tracker.track("accuracy", acc)
             self.tracker.track("loss", loss)
 
@@ -234,7 +237,7 @@ class Server:
             logger.info(
                 f"Round {round_num + 1}: accuracy = {acc:.2%}, loss = {loss:.3f}"
             )
-            logger.info(f"Round {round_num + 1} completed in {round_time:.2f}s\n")
+            logger.info(f"Round {round_num + 1} testing took {test_time:.2f}s\n")
 
             # early stop checking
             smoothed_accs = simple_moving_average(self.accs, self.args.window_size)
