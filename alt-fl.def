@@ -1,0 +1,32 @@
+Bootstrap: docker
+From: ubuntu 
+
+%files
+  # copy a local requirements.txt into the image during build
+  requirements.txt /opt/requirements.txt
+
+%environment
+  export LC_ALL=C
+
+%post
+  # install system dependencies
+  apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+  # set up venv for pip
+  python3 -m venv /root/venv
+  . /root/venv/bin/activate
+
+  # install Python dependencies
+  pip install --no-cache-dir -r /opt/requirements.txt
+
+%runscript
+  # activate venv
+  . /root/venv/bin/activate
+
+  # pass all arguments to main.py using "$@"
+  exec python3 /app/main.py "$@"
