@@ -75,7 +75,9 @@ def main():
         logger.info(f"Output directory {output_dir} already exists, proceeding...")
 
     for iteration in range(args.exp_repeat):
-        logger.info(f"##########  EXPERIMENT ITERATION {iteration + 1}  #########\n")
+        logger.info(
+            f"##########  EXPERIMENT ITERATION {iteration + 1}/{args.exp_repeat}  #########\n"
+        )
         # instantiate new wrapper
         wrapper = get_wrapper()
         filename = (
