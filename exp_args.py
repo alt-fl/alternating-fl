@@ -56,7 +56,7 @@ def _parse_args():
         "--model",
         type=str,
         default="LeNet5",
-        help="only LeNet5 architecture supported",
+        help="only LeNet5 and CNN architecture supported",
     )
     parser.add_argument("--dataset", type=str, default="cifar10", help="dataset name")
     parser.add_argument(
