@@ -106,13 +106,14 @@ def main():
             auth_data, auth_dict_users, num_classes=args.num_classes
         )
 
-        logger.debug("==========synthetic data==========")
-        log_num_samples_per_class(
-            syn_data, syn_dict_users, num_classes=args.num_classes
-        )
-
         rho = args.rho_syn / args.rho_tot
-        logger.info(f"Alt-FL with rho={rho:.5g} ({args.rho_syn}/{args.rho_tot})")
+        logger.info(f"Alt-FL with rho={rho:.5g} ({args.rho_syn}/{args.rho_tot})\n")
+
+        if rho > 0:
+            logger.debug("==========synthetic data==========")
+            log_num_samples_per_class(
+                syn_data, syn_dict_users, num_classes=args.num_classes
+            )
 
         client_context = None
         server_context = None

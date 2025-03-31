@@ -4,7 +4,7 @@ from typing import Any, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, Normalize, ToTensor
 
@@ -76,6 +76,9 @@ class CIFAR10Data(AbstractData):
             auth_part,
         )
 
+        if not self.syn_data:
+            return (auth_dict_users, [])
+
         match self.args.syn_balance.lower():
             case "self":
                 syn_part = CIFAR10Partitioner(
@@ -134,3 +137,30 @@ class CIFAR10Data(AbstractData):
         loss = loss / num_samples
         accuracy = num_correct / num_samples
         return accuracy.item(), loss.item()
+
+
+class CIFAR10ExtData(CIFAR10Data):
+    """
+    Extended version of CIFAR10. The authentic dataset is extended with CIFAR10
+    original testset, and uses the synthetic data as the testset.
+
+    With this we can obtain 40% larger authentic dataset, but the extended
+    version should only be used with non-interleaving experiments.
+    """
+
+    def __init__(self, name: str, path: Path, args: Any = None, **kwargs) -> None:
+        super(CIFAR10ExtData, self).__init__(name, path, args=args, **kwargs)
+
+        auth_data = self.get_authentic_data()
+        syn_data = self.get_synthetic_data()
+        test_data = self.get_test_data()
+
+        targets = []
+        targets.extend(auth_data.targets)
+        targets.extend(test_data.targets)
+
+        self.auth_data = ConcatDataset([auth_data, test_data])
+        self.auth_data.targets = targets
+
+        self.test_data = syn_data
+        self.syn_data = None

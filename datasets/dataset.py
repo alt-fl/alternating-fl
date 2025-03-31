@@ -1,8 +1,6 @@
 from pathlib import Path
-from typing import Tuple
-from torch.utils.data import Dataset
 
-from .cifar10 import CIFAR10Data
+from .cifar10 import CIFAR10Data, CIFAR10ExtData
 from .cinic10 import CINIC10Data
 from .abs_data import AbstractData
 
@@ -15,6 +13,8 @@ def get_dataset(name: str, path: Path, **kwargs) -> AbstractData:
     match name.lower():
         case "cifar10":
             return CIFAR10Data(name, path, **kwargs)
+        case "cifar10ext":
+            return CIFAR10ExtData(name, path, **kwargs)
         case "cinic10":
             return CINIC10Data(name, path, **kwargs)
         case _:

@@ -103,7 +103,9 @@ class Server:
                 client_data_idxs[id],
                 anchorloss=deepcopy(self.global_anchorloss),
                 syn_dataset=syn_dst,
-                syn_data_indices=syn_client_data_idxs[id],
+                syn_data_indices=(
+                    syn_client_data_idxs[id] if syn_client_data_idxs else []
+                ),
                 he_context=client_context,
                 mask=self.mask,
                 epoch_func=epoch_transition,
