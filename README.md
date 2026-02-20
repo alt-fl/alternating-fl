@@ -1,7 +1,7 @@
 # Alt-FL
 
 This repository contains the implementation of the Alt-FL framework described in the following conference paper:
-> Y. Wang, C. F. Chiasserini and E. M. Schiller, "Integrating Homomorphic Encryption and Synthetic Data in FL for Privacy and Learning Quality," 2025 IEEE LANMAN,  Liile, France, 2025, pp. 1-6, doi: [10.1109/LANMAN66415.2025.11154574](https://doi.org/10.1109/LANMAN66415.2025.11154574).
+> Y. Wang, C. F. Chiasserini and E. M. Schiller, "Integrating Homomorphic Encryption and Synthetic Data in FL for Privacy and Learning Quality," 2025 IEEE LANMAN,  Lille, France, 2025, pp. 1-6, doi: [10.1109/LANMAN66415.2025.11154574](https://doi.org/10.1109/LANMAN66415.2025.11154574).
 
 ## Example experiments using Alt-FL
 
@@ -37,5 +37,6 @@ Then run it with this command:
 ```bash
 apptainer run --bind <PATH_TO_ALT_FL>:/app <PATH_TO_IMAGE> [ALT_FL_ARGUMENTS]
 ```
+
 
 
